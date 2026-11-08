@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fabric Cleaner UnoRouter</title>
+<style>
+:root{
+  --bg:#f6f5f2;--panel:#ffffff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e1dc;
+  --accent:#d9480f;--accent-ink:#ffffff;--soft:#fbf3ee;--err:#b42318;--ok:#2f7d4f;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#141416;--panel:#1c1c1f;--ink:#ececee;--muted:#9a9aa2;--line:#2e2e33;
+  --accent:#ff7a45;--accent-ink:#141416;--soft:#2a1f1a;--err:#ff6b5e;--ok:#5cc28a;
+}}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 60px}
+header h1{font-size:22px;margin:0;letter-spacing:-.01em}
+header p{margin:4px 0 0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:20px;margin-top:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px;font-weight:600}
+h2:not(:first-child){margin-top:20px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,select,textarea,button{font:inherit;color:inherit}
+input[type=text],input[type=password],select,textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+textarea{min-height:170px;resize:vertical;font-size:13px;line-height:1.5}
+.check{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:8px}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+button{cursor:pointer;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 14px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--muted);background:var(--panel);transition:.15s}
+.drop.over{border-color:var(--accent);background:var(--soft)}
+.drop b{color:var(--ink)}
+.urlrow{display:flex;gap:8px;margin-top:12px}
+.urlrow input{flex:1}
+.urlrow button{flex:none}
+.jobs{margin-top:18px;display:flex;flex-direction:column;gap:18px}
+.job{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.job-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.job-head .name{font-weight:600;word-break:break-all}
+.job-head .meta{font-size:13px;color:var(--muted)}
+.status{font-size:13px;margin:6px 0 10px;color:var(--muted)}
+.status.err{color:var(--err)}
+.status.ok{color:var(--ok)}
+.compare{position:relative;border-radius:10px;overflow:hidden;background:repeating-conic-gradient(#8882 0 25%,transparent 0 50%) 0 0/16px 16px;user-select:none}
+.compare img{display:block;width:100%;height:auto}
+.compare .after{position:absolute;inset:0;clip-path:inset(0 0 0 50%)}
+.compare .after img{width:100%;height:100%;object-fit:fill}
+.compare .line{position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--accent);pointer-events:none}
+.compare .lab{position:absolute;top:8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;background:#000a;color:#fff;padding:2px 8px;border-radius:99px}
+.compare .lab.l{left:8px}.compare .lab.r{right:8px}
+.compare input[type=range]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;margin:0}
+.single img{display:block;max-width:100%;border-radius:10px}
+.results{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.results button.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+.actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.actions a{color:var(--accent);font-weight:600}
+.empty{color:var(--muted);text-align:center;padding:30px 0}
+.rawbox{margin-top:10px;font-size:13px}.rawbox summary{cursor:pointer;color:var(--muted)}
+.raw{white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:260px;overflow:auto;font-size:12px}
+code{font-size:.9em}
+</style>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Fabric Cleaner <span style="color:var(--muted);font-weight:400">· UnoRouter</span></h1>
+    <p>Turns a photo of quilted or printed fabric into a clean, flat print: weave texture and quilting stitches removed, design kept. This version sends requests to an OpenAI-compatible <code>/chat/completions</code> endpoint. <a href="https://tdchatgpt88-droid.github.io/fabric-cleaner/" style="color:var(--accent)">Open the original version</a></p>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Connection</h2>
+      <label for="endpoint">API endpoint</label>
+      <input type="text" id="endpoint" spellcheck="false">
+      <label for="apiKey">API key</label>
+      <input type="password" id="apiKey" placeholder="Your UnoRouter key" autocomplete="off">
+      <div class="check"><input type="checkbox" id="rememberKey"><span>Remember key in this browser</span></div>
+
+      <h2>Output</h2>
+      <label for="model">Model (must be able to output images)</label>
+      <input type="text" id="model" list="models" spellcheck="false" placeholder="type or pick a model id">
+      <datalist id="models"></datalist>
+      <div class="row" style="margin-top:8px"><button id="loadModels">Load model list</button></div>
+      <div class="hint" id="modelsHint">Click “Load model list” to fetch the model ids your key can use, then pick one that generates images.</div>
+      <div class="row">
+        <div><label for="sizeMode">Size hint</label>
+          <select id="sizeMode">
+            <option value="max">Highest possible</option>
+            <option value="match">Match the original</option>
+            <option value="none">No hint</option>
+          </select></div>
+        <div><label for="count">Versions</label>
+          <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+      </div>
+      <div class="hint">Chat endpoints have no standard size setting, so the size goes into the instructions as a request. Each version is a separate, billed call.</div>
+      <label for="extra">Extra request fields (JSON)</label>
+      <textarea id="extra" spellcheck="false" style="min-height:70px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px"></textarea>
+      <div class="hint">Merged into every request body. Remove <code>modalities</code> if a model rejects it.</div>
+
+      <h2>Instructions</h2>
+      <textarea id="prompt"></textarea>
+      <div class="row" style="margin-top:8px"><button id="resetPrompt">Reset to default</button></div>
+    </div>
+
+    <div>
+      <div class="drop" id="drop">
+        <b>Drop fabric photos here</b> or <label style="display:inline;color:var(--accent);cursor:pointer;margin:0"><u>choose files</u><input type="file" id="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label>
+        <div class="hint">PNG, JPEG or WebP. Several at once is fine; they're processed one after another.</div>
+        <div class="urlrow">
+          <input type="text" id="url" placeholder="…or paste an image URL">
+          <button id="addUrl">Add</button>
+        </div>
+      </div>
+      <div class="jobs" id="jobs"><div class="empty" id="empty">Results appear here with a before/after slider.</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const DEFAULT_ENDPOINT = 'https://api.unorouter.com/v1/chat/completions';
+const DEFAULT_EXTRA = '{\n  "modalities": ["image", "text"]\n}';
+const DEFAULT_PROMPT =
+`Restore this photo of fabric into a clean, flat digital print of its design, as if it were the original artwork file the fabric was printed from.
+
+REMOVE completely:
+- the woven fabric texture (thread grain, canvas/cotton weave, fibres, fuzz)
+- all quilting stitches, stitch lines, stitch holes and seams
+- the puckering, padding bumps, dimples, creases, wrinkles and the shadows and highlights they create
+- uneven lighting and colour shifts caused by the fabric surface
+
+KEEP:
+- the printed pattern, layout and composition, with every element in the same position, size and orientation
+- every illustration, character, object, outline, line, text and small detail, including fine linework and tiny motifs
+- the original art style (line weight, shading, texture and rendering style of the artwork)
+- the original print colours and palette, matched accurately and evenly
+
+ENHANCE:
+- Where the pattern is blurry, soft, low-resolution or hidden by stitches, regenerate it in high definition so it looks like the sharp original artwork.
+- Add fine detail where it is missing, such as crisp outlines, small markings, texture inside illustrations and clean edges, but only detail that fits the existing design and its style.
+- Rebuild areas obscured by stitches or creases by continuing the surrounding pattern seamlessly.
+
+Do not change the subject matter, add new objects, characters or text, change the art style, introduce new colours or recolour anything, and do not crop or change the framing. The result should be perfectly flat and smooth, with crisp, sharp, high-definition detail in the original style and colours.`;
+
+/* ---------- settings ---------- */
+const NS = 'gptstudio.uno.';
+function store(k, v){ try{ localStorage.setItem(NS + k, v); }catch(e){} }
+function load(k){ try{ return localStorage.getItem(NS + k); }catch(e){ return null; } }
+function forget(k){ try{ localStorage.removeItem(NS + k); }catch(e){} }
+$('endpoint').value = load('endpoint') || DEFAULT_ENDPOINT;
+$('extra').value = load('extra') || DEFAULT_EXTRA;
+$('prompt').value = load('prompt') || DEFAULT_PROMPT;
+['endpoint', 'model', 'sizeMode', 'count', 'extra', 'prompt'].forEach(id => {
+  const v = load(id); if (v && !['endpoint', 'extra', 'prompt'].includes(id)) $(id).value = v;
+  $(id).addEventListener('change', () => store(id, $(id).value));
+});
+$('resetPrompt').onclick = () => { $('prompt').value = DEFAULT_PROMPT; forget('prompt'); };
+const savedKey = load('apiKey');
+if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
+function saveKey(){ $('rememberKey').checked ? store('apiKey', $('apiKey').value.trim()) : forget('apiKey'); }
+$('apiKey').addEventListener('change', saveKey);
+$('rememberKey').addEventListener('change', saveKey);
+
+/* ---------- model list ---------- */
+$('loadModels').onclick = async () => {
+  const key = $('apiKey').value.trim(), hint = $('modelsHint');
+  if (!key) { hint.textContent = 'Add your API key first.'; return; }
+  const url = $('endpoint').value.trim().replace(/\/chat\/completions\/?$/, '') + '/models';
+  hint.textContent = 'Loading…';
+  try {
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + key } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data.error && data.error.message) || 'HTTP ' + res.status);
+    const items = (data.data || data.models || []).map(m => typeof m === 'string' ? { id: m } : m).filter(m => m && m.id);
+    const isImg = m => /image|imagen|flux|seedream|nano.?banana|dall|kontext|qwen.?edit|ideogram|recraft/i.test(m.id) ||
+      JSON.stringify(m.architecture || m.output_modalities || m.capabilities || '').toLowerCase().includes('image"') ||
+      (m.architecture && /->.*image/.test(m.architecture.modality || ''));
+    items.sort((a, b) => (isImg(b) - isImg(a)) || a.id.localeCompare(b.id));
+    $('models').innerHTML = '';
+    items.forEach(m => { const o = document.createElement('option'); o.value = m.id; if (isImg(m)) o.label = m.id + '  (image)'; $('models').append(o); });
+    const n = items.filter(isImg).length;
+    hint.textContent = items.length + ' models loaded; ' + n + ' look like image models and are listed first. Click the Model box to choose.';
+  } catch (e) { hint.textContent = 'Could not load the model list (' + e.message + '). You can still type a model id.'; }
+};
+
+/* ---------- inputs ---------- */
+function bestUrl(raw){
+  try {
+    const u = new URL(raw.trim());
+    if (u.pathname.includes('/cdn/shop/') || u.hostname.includes('cdn.shopify.com')) {
+      u.searchParams.delete('width'); u.searchParams.delete('height'); u.searchParams.delete('crop');
+    }
+    return u.toString();
+  } catch (e) { return null; }
+}
+$('addUrl').onclick = async () => {
+  const url = bestUrl($('url').value);
+  if (!url) return alert('That does not look like a valid URL.');
+  const name = decodeURIComponent(new URL(url).pathname.split('/').pop() || 'image');
+  const job = newJob(name);
+  job.status('Downloading the original image…');
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    if (!blob.type.startsWith('image/')) throw new Error('not an image');
+    $('url').value = '';
+    queue(job, new File([blob], name, { type: blob.type }));
+  } catch (e) {
+    job.status('The website would not let this page download the image directly (' + e.message + '). Open the link in a new tab, save the image (right-click → Save image as…), then drop the file here.', 'err');
+    job.link(url);
+  }
+};
+$('url').addEventListener('keydown', e => { if (e.key === 'Enter') $('addUrl').click(); });
+$('file').addEventListener('change', e => { [...e.target.files].forEach(f => queue(newJob(f.name), f)); e.target.value = ''; });
+const drop = $('drop');
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => [...e.dataTransfer.files].filter(f => f.type.startsWith('image/')).forEach(f => queue(newJob(f.name), f)));
+
+/* ---------- job UI ---------- */
+function newJob(name){
+  const empty = $('empty'); if (empty) empty.remove();
+  const el = document.createElement('div'); el.className = 'job';
+  el.innerHTML = '<div class="job-head"><span class="name"></span><span class="meta"></span></div><div class="status"></div><div class="view"></div><div class="results"></div><div class="actions"></div><details class="rawbox" hidden><summary>Model reply</summary><pre class="raw"></pre></details>';
+  el.querySelector('.name').textContent = name;
+  $('jobs').prepend(el);
+  return {
+    el, name,
+    status(text, kind){ const s = el.querySelector('.status'); s.textContent = text; s.className = 'status' + (kind ? ' ' + kind : ''); },
+    meta(text){ el.querySelector('.meta').textContent = text; },
+    link(url){ const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open image in a new tab'; el.querySelector('.actions').append(a); },
+    raw(text, open){ const d = el.querySelector('.rawbox'); d.hidden = !text; d.open = !!open; el.querySelector('.raw').textContent = text || ''; }
+  };
+}
+function showOriginal(job, src){
+  job.el.querySelector('.view').innerHTML = '<div class="single"><img alt="Original"></div>';
+  job.el.querySelector('.view img').src = src;
+}
+function showCompare(job, before, after){
+  const view = job.el.querySelector('.view');
+  view.innerHTML = '<div class="compare"><img alt="Original"><div class="after"><img alt="Cleaned"></div><div class="line"></div><span class="lab l">Before</span><span class="lab r">After</span><input type="range" min="0" max="100" value="50" aria-label="Before/after slider"></div>';
+  const [b, a] = view.querySelectorAll('img');
+  b.src = before; a.src = after;
+  const range = view.querySelector('input'), clip = view.querySelector('.after'), line = view.querySelector('.line');
+  range.oninput = () => { clip.style.clipPath = 'inset(0 0 0 ' + range.value + '%)'; line.style.left = range.value + '%'; };
+}
+
+/* ---------- image helpers ---------- */
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024, MAX_UPLOAD_SIDE = 3072;
+function readDataUrl(blob){
+  return new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => bad(r.error); r.readAsDataURL(blob); });
+}
+// Send the original file when it is small enough; otherwise re-encode a large, high-quality copy.
+async function toDataUrl(file, img){
+  if (file.size <= MAX_UPLOAD_BYTES) return readDataUrl(file);
+  const s = Math.min(1, MAX_UPLOAD_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.95);
+}
+function sizeHint(w, h, mode){
+  if (mode === 'none') return '';
+  if (mode === 'match') return '\n\nOutput the image at ' + w + ' × ' + h + ' pixels (or the closest size you support), with the same aspect ratio as the input.';
+  return '\n\nOutput the image at the highest resolution you support, with the same aspect ratio as the input (' + w + ' × ' + h + ').';
+}
+// Collect every image the reply contains, whatever shape the provider uses.
+function findImages(msg){
+  const found = [];
+  const add = u => { if (typeof u === 'string' && (u.startsWith('data:image') || /^https?:\/\//.test(u)) && !found.includes(u)) found.push(u); };
+  const fromPart = p => {
+    if (!p || typeof p !== 'object') return;
+    if (p.image_url) add(typeof p.image_url === 'string' ? p.image_url : p.image_url.url);
+    if (p.url && /image/.test(p.type || '')) add(p.url);
+    const b64 = p.b64_json || p.image_base64 || (p.inline_data && p.inline_data.data) || (p.inlineData && p.inlineData.data) || (p.type === 'image' && p.source && p.source.data);
+    if (b64) add('data:' + ((p.inline_data || p.inlineData || p.source || {}).mime_type || (p.inlineData || {}).mimeType || (p.source || {}).media_type || 'image/png') + ';base64,' + b64);
+    if (typeof p.text === 'string') fromText(p.text);
+  };
+  const fromText = t => {
+    (t.match(/data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+/g) || []).forEach(add);
+    (t.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g) || []).forEach(m => add(m.replace(/^!\[[^\]]*\]\(|\)$/g, '')));
+    (t.match(/https?:\/\/[^\s)"'<>]+\.(?:png|jpe?g|webp)(?:\?[^\s)"'<>]*)?/gi) || []).forEach(add);
+  };
+  (msg.images || []).forEach(fromPart);
+  if (Array.isArray(msg.content)) msg.content.forEach(fromPart);
+  else if (typeof msg.content === 'string') fromText(msg.content);
+  return found;
+}
+function textOf(msg){
+  if (typeof msg.content === 'string') return msg.content.replace(/data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+/g, '[image data]');
+  if (Array.isArray(msg.content)) return msg.content.filter(p => typeof p.text === 'string').map(p => p.text).join('\n');
+  return '';
+}
+// Turn a returned URL into a local blob URL so it downloads with a proper file name.
+async function localise(u){
+  if (u.startsWith('data:')) { const b = await (await fetch(u)).blob(); return URL.createObjectURL(b); }
+  try { const r = await fetch(u); if (r.ok) return URL.createObjectURL(await r.blob()); } catch (e) {}
+  return u;
+}
+
+/* ---------- processing ---------- */
+const pending = []; let running = false;
+function queue(job, file){
+  const src = URL.createObjectURL(file);
+  showOriginal(job, src);
+  const img = new Image();
+  img.onload = () => {
+    job.meta('Original ' + img.naturalWidth + ' × ' + img.naturalHeight + 'px');
+    pending.push({ job, file, src, img });
+    job.status(running ? 'Waiting in queue…' : 'Starting…');
+    run();
+  };
+  img.onerror = () => job.status('Could not read this image file.', 'err');
+  img.src = src;
+}
+async function run(){
+  if (running) return;
+  running = true;
+  while (pending.length) await processJob(pending.shift());
+  running = false;
+}
+async function callOnce(endpoint, key, body){
+  const res = await fetch(endpoint, { method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const text = await res.text();
+  let data = {}; try { data = JSON.parse(text); } catch (e) {}
+  if (!res.ok) throw new Error((data.error && (data.error.message || data.error)) || ('Request failed (HTTP ' + res.status + ') ' + text.slice(0, 300)));
+  const msg = (data.choices && data.choices[0] && data.choices[0].message) || {};
+  return { images: findImages(msg), text: textOf(msg), raw: text };
+}
+async function processJob({ job, file, src, img }){
+  const key = $('apiKey').value.trim(), model = $('model').value.trim(), endpoint = $('endpoint').value.trim();
+  if (!key) { job.status('Add your API key first, then drop the image again.', 'err'); return; }
+  if (!model) { job.status('Choose a model first, then drop the image again.', 'err'); return; }
+  let extra = {};
+  try { extra = JSON.parse($('extra').value.trim() || '{}'); } catch (e) { job.status('The extra request fields are not valid JSON: ' + e.message, 'err'); return; }
+  const n = +$('count').value, w = img.naturalWidth, h = img.naturalHeight;
+
+  const t0 = Date.now();
+  let done = 0;
+  const tick = () => job.status('Cleaning with ' + model + (n > 1 ? ' (' + done + ' of ' + n + ' done)' : '') + '… ' + Math.round((Date.now() - t0) / 1000) + 's');
+  tick(); const timer = setInterval(tick, 1000);
+  try {
+    const dataUrl = await toDataUrl(file, img);
+    const body = Object.assign({
+      model, stream: false,
+      messages: [{ role: 'user', content: [
+        { type: 'text', text: ($('prompt').value.trim() || DEFAULT_PROMPT) + sizeHint(w, h, $('sizeMode').value) },
+        { type: 'image_url', image_url: { url: dataUrl } }
+      ] }]
+    }, extra);
+    const calls = Array.from({ length: n }, () => callOnce(endpoint, key, body).then(r => { done++; return r; }, e => { done++; return { error: e }; }));
+    const replies = await Promise.all(calls);
+    clearInterval(timer);
+    const urls = replies.flatMap(r => r.images || []);
+    const errors = replies.filter(r => r.error).map(r => r.error.message);
+    const notes = replies.map(r => r.text).filter(Boolean).join('\n\n---\n\n');
+    if (!urls.length) {
+      if (errors.length) throw new Error(errors[0]);
+      job.raw(notes || (replies[0] && replies[0].raw) || '', true);
+      throw new Error('The model replied, but its reply contained no image. Pick a model that can generate images, or see the reply below.');
+    }
+    const outs = await Promise.all(urls.map(localise));
+    job.status('Done in ' + Math.round((Date.now() - t0) / 1000) + 's. Drag the slider to compare.' + (errors.length ? ' ' + errors.length + ' of ' + n + ' calls failed: ' + errors[0] : ''), 'ok');
+    if (notes) job.raw(notes, false);
+    showResults(job, src, outs);
+  } catch (e) {
+    clearInterval(timer);
+    let msg = e.message === 'Failed to fetch' ? 'Could not reach the API (network error or the API does not allow browser requests).' : e.message;
+    if (/verif/i.test(msg)) msg += ' (Your organization may need to be verified to use this model.)';
+    job.status(msg, 'err');
+  }
+}
+function showResults(job, src, outs){
+  const results = job.el.querySelector('.results'), actions = job.el.querySelector('.actions');
+  const base = job.name.replace(/\.[a-z0-9]+$/i, '');
+  const select = i => {
+    showCompare(job, src, outs[i]);
+    [...results.children].forEach((b, j) => b.classList.toggle('on', j === i));
+    actions.innerHTML = '';
+    const probe = new Image();
+    probe.onload = () => {
+      const a = document.createElement('a');
+      a.href = outs[i]; a.download = base + '-clean' + (outs.length > 1 ? '-v' + (i + 1) : '') + '.png';
+      a.textContent = 'Download';
+      const open = document.createElement('a');
+      open.href = outs[i]; open.target = '_blank'; open.rel = 'noopener'; open.textContent = 'View full size';
+      const dims = document.createElement('span');
+      dims.className = 'hint'; dims.style.margin = 0;
+      dims.textContent = probe.naturalWidth + ' × ' + probe.naturalHeight + 'px';
+      actions.append(a, open, dims);
+    };
+    probe.src = outs[i];
+  };
+  results.innerHTML = '';
+  if (outs.length > 1) outs.forEach((_, i) => { const b = document.createElement('button'); b.textContent = 'Version ' + (i + 1); b.onclick = () => select(i); results.append(b); });
+  select(0);
+}
+</script>
+</body>
+</html>
