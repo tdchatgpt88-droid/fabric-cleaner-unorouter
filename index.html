@@ -76,15 +76,22 @@ code{font-size:.9em}
   <div class="grid">
     <div class="card">
       <h2>Connection</h2>
-      <label for="endpoint">API endpoint</label>
-      <input type="text" id="endpoint" spellcheck="false">
+      <label for="base">API base URL</label>
+      <input type="text" id="base" spellcheck="false">
+      <label for="apiMode">Request type</label>
+      <select id="apiMode">
+        <option value="edits">Image edit: /images/edits (recommended)</option>
+        <option value="generations">Image generation: /images/generations (JSON)</option>
+        <option value="chat">Chat: /chat/completions</option>
+      </select>
+      <div class="hint" id="modeHint"></div>
       <label for="apiKey">API key</label>
       <input type="password" id="apiKey" placeholder="Your UnoRouter key" autocomplete="off">
       <div class="check"><input type="checkbox" id="rememberKey"><span>Remember key in this browser</span></div>
 
       <h2>Output</h2>
       <label for="model">Model (must be able to output images)</label>
-      <input type="text" id="model" list="models" spellcheck="false" placeholder="type or pick a model id">
+      <input type="text" id="model" list="models" spellcheck="false" placeholder="e.g. openai/gpt-image-2.5-sunburst">
       <datalist id="models"></datalist>
       <div class="row" style="margin-top:8px"><button id="loadModels">Load model list</button></div>
       <div class="hint" id="modelsHint">Click “Load model list” to fetch the model ids your key can use, then pick one that generates images.</div>
@@ -95,13 +102,22 @@ code{font-size:.9em}
             <option value="match">Match the original (capped)</option>
             <option value="none">Don't ask for a size</option>
           </select></div>
+        <div><label for="quality">Quality</label>
+          <select id="quality">
+            <option value="">Don't send</option>
+            <option value="high">High</option>
+            <option value="xhigh">Extra high</option>
+            <option value="max">Max</option>
+          </select></div>
+      </div>
+      <div class="row">
         <div><label for="count">Versions</label>
           <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
       </div>
-      <div class="hint">The size is worked out for each image with the same limits as gpt-image-2.5-sunburst: up to 3840px on the long side and about 8.3 megapixels in total (e.g. 2880 × 2880 for a square), keeping the photo's shape. It's added to the instructions, because chat endpoints have no size setting; the model may still return a smaller image. Each version is a separate, billed call.</div>
+      <div class="hint">The size is worked out for each image with the same limits as gpt-image-2.5-sunburst: up to 3840px on the long side and about 8.3 megapixels in total (e.g. 2880 × 2880 for a square), keeping the photo's shape. It's sent as the <code>size</code> field (e.g. <code>"size": "2880x2880"</code>) and also written into the instructions. Each version is billed.</div>
       <label for="extra">Extra request fields (JSON)</label>
       <textarea id="extra" spellcheck="false" style="min-height:70px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px"></textarea>
-      <div class="hint">Merged into every request body. Remove <code>modalities</code> if a model rejects it.</div>
+      <div class="hint">Added to every request body, and can override the fields above, e.g. <code>{"output_format": "png"}</code>.</div>
 
       <h2>Instructions</h2>
       <textarea id="prompt"></textarea>
@@ -124,8 +140,9 @@ code{font-size:.9em}
 
 <script>
 const $ = id => document.getElementById(id);
-const DEFAULT_ENDPOINT = 'https://api.unorouter.com/v1/chat/completions';
-const DEFAULT_EXTRA = '{\n  "modalities": ["image", "text"]\n}';
+const DEFAULT_BASE = 'https://api.unorouter.com/v1';
+const DEFAULT_MODEL = 'openai/gpt-image-2.5-sunburst';
+const DEFAULT_EXTRA = '{}';
 const DEFAULT_PROMPT =
 `Restore this photo of fabric into a clean, flat digital print of its design, as if it were the original artwork file the fabric was printed from.
 
@@ -153,13 +170,21 @@ const NS = 'gptstudio.uno.';
 function store(k, v){ try{ localStorage.setItem(NS + k, v); }catch(e){} }
 function load(k){ try{ return localStorage.getItem(NS + k); }catch(e){ return null; } }
 function forget(k){ try{ localStorage.removeItem(NS + k); }catch(e){} }
-$('endpoint').value = load('endpoint') || DEFAULT_ENDPOINT;
+$('base').value = load('base') || DEFAULT_BASE;
+$('model').value = DEFAULT_MODEL; $('quality').value = 'max';
 $('extra').value = load('extra') || DEFAULT_EXTRA;
 $('prompt').value = load('prompt') || DEFAULT_PROMPT;
-['endpoint', 'model', 'sizeMode', 'count', 'extra', 'prompt'].forEach(id => {
-  const v = load(id); if (v && !['endpoint', 'extra', 'prompt'].includes(id)) $(id).value = v;
+['base', 'apiMode', 'model', 'quality', 'sizeMode', 'count', 'extra', 'prompt'].forEach(id => {
+  const v = load(id); if (v !== null && !['base', 'extra', 'prompt'].includes(id)) $(id).value = v;
   $(id).addEventListener('change', () => store(id, $(id).value));
 });
+const MODE_HINTS = {
+  edits: 'Sends your photo as a file to {base}/images/edits with model, prompt, size, quality and n, the OpenAI image-edit format.',
+  generations: 'Sends JSON to {base}/images/generations: model, prompt, size, quality, n, plus your photo in an "image" field as a data URL.',
+  chat: 'Sends a chat message with your photo to {base}/chat/completions, plus "size" and "modalities": ["image","text"].'
+};
+function showModeHint(){ $('modeHint').textContent = MODE_HINTS[$('apiMode').value].replace('{base}', $('base').value.trim().replace(/\/+$/, '')); }
+$('apiMode').addEventListener('change', showModeHint); $('base').addEventListener('input', showModeHint); showModeHint();
 $('resetPrompt').onclick = () => { $('prompt').value = DEFAULT_PROMPT; forget('prompt'); };
 const savedKey = load('apiKey');
 if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
@@ -171,7 +196,7 @@ $('rememberKey').addEventListener('change', saveKey);
 $('loadModels').onclick = async () => {
   const key = $('apiKey').value.trim(), hint = $('modelsHint');
   if (!key) { hint.textContent = 'Add your API key first.'; return; }
-  const url = $('endpoint').value.trim().replace(/\/chat\/completions\/?$/, '') + '/models';
+  const url = $('base').value.trim().replace(/\/+$/, '') + '/models';
   hint.textContent = 'Loading…';
   try {
     const res = await fetch(url, { headers: { Authorization: 'Bearer ' + key } });
@@ -346,22 +371,38 @@ async function run(){
   while (pending.length) await processJob(pending.shift());
   running = false;
 }
-async function callOnce(endpoint, key, body){
-  const res = await fetch(endpoint, { method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+async function callOnce(url, key, body){
+  const isForm = body instanceof FormData;
+  const headers = { Authorization: 'Bearer ' + key };
+  if (!isForm) headers['Content-Type'] = 'application/json';
+  const res = await fetch(url, { method: 'POST', headers, body: isForm ? body : JSON.stringify(body) });
   const text = await res.text();
   let data = {}; try { data = JSON.parse(text); } catch (e) {}
-  if (!res.ok) throw new Error((data.error && (data.error.message || data.error)) || ('Request failed (HTTP ' + res.status + ') ' + text.slice(0, 300)));
+  if (!res.ok) {
+    const err = data.error;
+    throw new Error((err && (err.message || (typeof err === 'string' ? err : JSON.stringify(err)))) || data.message || ('Request failed (HTTP ' + res.status + ') ' + text.slice(0, 300)));
+  }
+  const images = [];
+  // Images API: { data: [ { b64_json } or { url } ] }
+  (Array.isArray(data.data) ? data.data : []).forEach(d => {
+    if (d.b64_json) images.push('data:image/' + (data.output_format || 'png') + ';base64,' + d.b64_json);
+    else if (d.url) images.push(d.url);
+  });
+  // Chat API: choices[0].message
   const msg = (data.choices && data.choices[0] && data.choices[0].message) || {};
-  return { images: findImages(msg), text: textOf(msg), raw: text };
+  findImages(msg).forEach(u => images.push(u));
+  return { images, text: textOf(msg) || data.revised_prompt || '', raw: text.replace(/[A-Za-z0-9+/=]{200,}/g, '[image data]') };
 }
 async function processJob({ job, file, src, img }){
-  const key = $('apiKey').value.trim(), model = $('model').value.trim(), endpoint = $('endpoint').value.trim();
+  const key = $('apiKey').value.trim(), model = $('model').value.trim(), base = $('base').value.trim().replace(/\/+$/, '');
+  const apiMode = $('apiMode').value, quality = $('quality').value;
   if (!key) { job.status('Add your API key first, then drop the image again.', 'err'); return; }
   if (!model) { job.status('Choose a model first, then drop the image again.', 'err'); return; }
   let extra = {};
   try { extra = JSON.parse($('extra').value.trim() || '{}'); } catch (e) { job.status('The extra request fields are not valid JSON: ' + e.message, 'err'); return; }
   const n = +$('count').value, w = img.naturalWidth, h = img.naturalHeight;
   const mode = $('sizeMode').value, size = mode === 'none' ? null : fitSize(w, h, mode);
+  const sizeStr = size ? size.W + 'x' + size.H : '';
   const sizeText = size ? ' at ' + size.W + ' × ' + size.H : '';
 
   const t0 = Date.now();
@@ -369,16 +410,30 @@ async function processJob({ job, file, src, img }){
   const tick = () => job.status('Cleaning with ' + model + sizeText + (n > 1 ? ' (' + done + ' of ' + n + ' done)' : '') + '… ' + Math.round((Date.now() - t0) / 1000) + 's');
   tick(); const timer = setInterval(tick, 1000);
   try {
-    const dataUrl = await toDataUrl(file, img);
-    const body = Object.assign({
-      model, stream: false,
-      messages: [{ role: 'user', content: [
-        { type: 'text', text: ($('prompt').value.trim() || DEFAULT_PROMPT) + sizeHint(size, w, h) },
-        { type: 'image_url', image_url: { url: dataUrl } }
-      ] }]
-    }, extra);
-    const calls = Array.from({ length: n }, () => callOnce(endpoint, key, body).then(r => { done++; return r; }, e => { done++; return { error: e }; }));
-    const replies = await Promise.all(calls);
+    const prompt = ($('prompt').value.trim() || DEFAULT_PROMPT) + sizeHint(size, w, h);
+    let url, body, calls = 1;
+    if (apiMode === 'edits') {
+      url = base + '/images/edits';
+      const upload = file.size <= MAX_UPLOAD_BYTES ? file : await (await fetch(await toDataUrl(file, img))).blob();
+      body = new FormData();
+      const fields = Object.assign({ model, prompt, n: String(n) }, sizeStr ? { size: sizeStr } : {}, quality ? { quality } : {}, extra);
+      Object.entries(fields).forEach(([k, v]) => body.append(k, typeof v === 'string' ? v : JSON.stringify(v)));
+      body.append('image', upload, file.name || 'fabric.png');
+    } else if (apiMode === 'generations') {
+      url = base + '/images/generations';
+      body = Object.assign({ model, prompt, n, image: await toDataUrl(file, img) }, sizeStr ? { size: sizeStr } : {}, quality ? { quality } : {}, extra);
+    } else {
+      url = base + '/chat/completions'; calls = n;
+      body = Object.assign({
+        model, stream: false, modalities: ['image', 'text'],
+        messages: [{ role: 'user', content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: await toDataUrl(file, img) } }
+        ] }]
+      }, sizeStr ? { size: sizeStr } : {}, quality ? { quality } : {}, extra);
+    }
+    const calls_ = Array.from({ length: calls }, () => callOnce(url, key, body).then(r => { done += apiMode === 'chat' ? 1 : n; return r; }, e => { done += apiMode === 'chat' ? 1 : n; return { error: e }; }));
+    const replies = await Promise.all(calls_);
     clearInterval(timer);
     const urls = replies.flatMap(r => r.images || []);
     const errors = replies.filter(r => r.error).map(r => r.error.message);
@@ -386,7 +441,7 @@ async function processJob({ job, file, src, img }){
     if (!urls.length) {
       if (errors.length) throw new Error(errors[0]);
       job.raw(notes || (replies[0] && replies[0].raw) || '', true);
-      throw new Error('The model replied, but its reply contained no image. Pick a model that can generate images, or see the reply below.');
+      throw new Error('The API replied, but the reply contained no image. See the reply below; try another request type or model.');
     }
     const outs = await Promise.all(urls.map(localise));
     job.status('Done in ' + Math.round((Date.now() - t0) / 1000) + 's' + (size ? ' (asked for ' + size.W + ' × ' + size.H + ')' : '') + '. Drag the slider to compare.' + (errors.length ? ' ' + errors.length + ' of ' + n + ' calls failed: ' + errors[0] : ''), 'ok');
