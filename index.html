@@ -329,7 +329,8 @@ function findImages(msg){
     if (typeof p.text === 'string') fromText(p.text);
   };
   const fromText = t => {
-    (t.match(/data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+/g) || []).forEach(add);
+    const parts = splitDataUrls(t);
+    parts.urls.forEach(add); t = parts.rest;
     (t.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g) || []).forEach(m => add(m.replace(/^!\[[^\]]*\]\(|\)$/g, '')));
     (t.match(/https?:\/\/[^\s)"'<>]+\.(?:png|jpe?g|webp)(?:\?[^\s)"'<>]*)?/gi) || []).forEach(add);
   };
@@ -338,8 +339,29 @@ function findImages(msg){
   else if (typeof msg.content === 'string') fromText(msg.content);
   return found;
 }
+// Pull base64 image data URLs out of text with plain string scanning; regular expressions overflow
+// the browser's stack on multi-megabyte images.
+function splitDataUrls(t){
+  const urls = []; let rest = '', i = 0;
+  const ok = c => (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c === 43 || c === 47 || c === 61;
+  while (true) {
+    const start = t.indexOf('data:image/', i);
+    if (start < 0) { rest += t.slice(i); break; }
+    const comma = t.indexOf(';base64,', start);
+    if (comma < 0 || comma - start > 40) { rest += t.slice(i, start + 11); i = start + 11; continue; }
+    let end = comma + 8;
+    while (end < t.length && ok(t.charCodeAt(end))) end++;
+    urls.push(t.slice(start, end)); rest += t.slice(i, start) + '[image data]'; i = end;
+  }
+  return { urls, rest };
+}
+// A short, readable copy of the reply: long strings (image data) are replaced by their length.
+function shortRaw(text, data){
+  try { if (data && typeof data === 'object' && Object.keys(data).length) return JSON.stringify(data, (k, v) => typeof v === 'string' && v.length > 300 ? '[' + v.length + ' characters of data]' : v, 2); } catch (e) {}
+  return text.length > 4000 ? text.slice(0, 4000) + '…' : text;
+}
 function textOf(msg){
-  if (typeof msg.content === 'string') return msg.content.replace(/data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+/g, '[image data]');
+  if (typeof msg.content === 'string') return splitDataUrls(msg.content).rest;
   if (Array.isArray(msg.content)) return msg.content.filter(p => typeof p.text === 'string').map(p => p.text).join('\n');
   return '';
 }
@@ -391,7 +413,7 @@ async function callOnce(url, key, body){
   // Chat API: choices[0].message
   const msg = (data.choices && data.choices[0] && data.choices[0].message) || {};
   findImages(msg).forEach(u => images.push(u));
-  return { images, text: textOf(msg) || data.revised_prompt || '', raw: text.replace(/[A-Za-z0-9+/=]{200,}/g, '[image data]') };
+  return { images, text: textOf(msg) || data.revised_prompt || '', raw: shortRaw(text, data) };
 }
 async function processJob({ job, file, src, img }){
   const key = $('apiKey').value.trim(), model = $('model').value.trim(), base = $('base').value.trim().replace(/\/+$/, '');
