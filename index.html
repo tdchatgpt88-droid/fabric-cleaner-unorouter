@@ -91,7 +91,7 @@ code{font-size:.9em}
 
       <h2>Output</h2>
       <label for="model">Model (must be able to output images)</label>
-      <input type="text" id="model" list="models" spellcheck="false" placeholder="e.g. openai/gpt-image-2.5-sunburst">
+      <input type="text" id="model" list="models" spellcheck="false" placeholder="e.g. gpt-image-2.5-sunburst">
       <datalist id="models"></datalist>
       <div class="row" style="margin-top:8px"><button id="loadModels">Load model list</button></div>
       <div class="hint" id="modelsHint">Click “Load model list” to fetch the model ids your key can use, then pick one that generates images.</div>
@@ -141,7 +141,7 @@ code{font-size:.9em}
 <script>
 const $ = id => document.getElementById(id);
 const DEFAULT_BASE = 'https://api.unorouter.com/v1';
-const DEFAULT_MODEL = 'openai/gpt-image-2.5-sunburst';
+const DEFAULT_MODEL = 'gpt-image-2.5-sunburst';
 const DEFAULT_EXTRA = '{}';
 const DEFAULT_PROMPT =
 `Restore this photo of fabric into a clean, flat digital print of its design, as if it were the original artwork file the fabric was printed from.
@@ -178,6 +178,8 @@ $('prompt').value = load('prompt') || DEFAULT_PROMPT;
   const v = load(id); if (v !== null && !['base', 'extra', 'prompt'].includes(id)) $(id).value = v;
   $(id).addEventListener('change', () => store(id, $(id).value));
 });
+// UnoRouter doesn't recognise the "openai/" prefix; clean up a model id saved before this change.
+if (/^openai\/gpt-image/i.test($('model').value)) { $('model').value = $('model').value.replace(/^openai\//i, ''); store('model', $('model').value); }
 const MODE_HINTS = {
   edits: 'Sends your photo as a file to {base}/images/edits with model, prompt, size, quality and n, the OpenAI image-edit format.',
   generations: 'Sends JSON to {base}/images/generations: model, prompt, size, quality, n, plus your photo in an "image" field as a data URL.',

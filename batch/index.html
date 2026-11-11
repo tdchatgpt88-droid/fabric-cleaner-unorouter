@@ -165,7 +165,7 @@ A floral border print (no size given: uses the default size)
 
 <script>
 const $ = id => document.getElementById(id);
-const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'openai/gpt-image-2.5-sunburst', quality: 'max', format: 'png',
+const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', format: 'png',
   fallback: '1122x1402', parallel: '50', sizeRetries: '0', wrongSize: 'resize', extra: '{}', timeout: '15', split: 'auto', saveMode: 'folder' };
 
 /* ---------- settings ---------- */
@@ -177,6 +177,8 @@ Object.keys(DEFAULTS).forEach(id => {
   const v = load('batch2.' + id); $(id).value = v !== null ? v : DEFAULTS[id];
   $(id).addEventListener('change', () => store('batch2.' + id, $(id).value));
 });
+// UnoRouter doesn't recognise the "openai/" prefix; clean up a model id saved before this change.
+if (/^openai\/gpt-image/i.test($('model').value)) { $('model').value = $('model').value.replace(/^openai\//i, ''); store('batch2.model', $('model').value); }
 const savedKey = load('apiKey');
 if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
 function saveKey(){ $('rememberKey').checked ? store('apiKey', $('apiKey').value.trim()) : forget('apiKey'); }
