@@ -90,7 +90,7 @@ code{font-size:.9em}
         </div>
         <label for="complexity">Planning effort</label>
         <select id="complexity"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="">Don't send (model default)</option></select>
-        <div class="hint">Planning effort is OpenAI's <code>complexity</code> field: how much the model plans the picture before drawing it, separate from Quality. High is the most. Without it the model uses its own default.</div>
+        <div class="hint">Planning effort is OpenAI's <code>complexity</code> field: how much the model plans the picture before drawing it, separate from Quality. High is the most. The default is not to send it, so the model uses its own default (some models reject High).</div>
         <label for="outSize">Mockup size (width x height)</label>
         <input type="text" id="outSize" class="mono" spellcheck="false" placeholder="1122x1402">
         <div class="hint" id="sizeHint"></div>
@@ -225,7 +225,7 @@ const TYPES = [
   { key: 'bed', label: 'Bed', box: 'doBed', tpl: 'tplBed', suffix: 'bed' },
   { key: 'outdoor', label: 'Hanging outdoor', box: 'doOutdoor', tpl: 'tplOutdoor', suffix: 'outdoor' }
 ];
-const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', complexity: 'high', format: 'jpeg', outSize: '1122x1402',
+const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', complexity: '', format: 'jpeg', outSize: '1122x1402',
   parallel: '50', sizeRetries: '0', wrongSize: 'flag', extra: '{}', imageField: 'auto', timeout: '15', saveMode: 'folder', bedRef: 'https://cdn.shopify.com/s/files/1/0964/6352/0108/files/2ed30808432372bca5f3c4caf810b4b8_3.jpg?v=1794489648' };
 
 /* ---------- settings ---------- */
@@ -253,6 +253,8 @@ $('resetPrompts').onclick = () => {
   if (!running) { quilts.forEach(setScene); renderRows(); }
 };
 if (!$('wrongSize').value) $('wrongSize').value = 'flag'; // the old "resize" choice was removed (Nov 13)
+// Planning effort now defaults to "Don't send" (Nov 13): some models reject "high". Reset an older saved choice once.
+if (load('mock.complexityReset') === null) { $('complexity').value = ''; store('mock.complexity', ''); store('mock.complexityReset', '1'); }
 const savedKey = load('apiKey');
 if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
 function saveKey(){ $('rememberKey').checked ? store('apiKey', $('apiKey').value.trim()) : forget('apiKey'); }

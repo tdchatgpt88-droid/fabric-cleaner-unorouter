@@ -84,7 +84,7 @@ code{font-size:.9em}
         </div>
         <label for="complexity">Planning effort</label>
         <select id="complexity"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="">Don't send (model default)</option></select>
-        <div class="hint">Planning effort is OpenAI's <code>complexity</code> field: how much the model plans the picture before drawing it, separate from Quality. High is the most. Without it the model uses its own default.</div>
+        <div class="hint">Planning effort is OpenAI's <code>complexity</code> field: how much the model plans the picture before drawing it, separate from Quality. High is the most. The default is not to send it, so the model uses its own default (some models reject High).</div>
         <label for="fallback">Size for prompts that don't state one</label>
         <input type="text" id="fallback" class="mono" spellcheck="false" placeholder="e.g. 1122x1402 (empty = skip those prompts)">
         <div class="row">
@@ -167,7 +167,7 @@ A floral border print (no size given: uses the default size)
 
 <script>
 const $ = id => document.getElementById(id);
-const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', complexity: 'high', format: 'png',
+const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', complexity: '', format: 'png',
   fallback: '1122x1402', parallel: '50', sizeRetries: '0', wrongSize: 'flag', extra: '{}', timeout: '15', split: 'auto', saveMode: 'folder' };
 
 /* ---------- settings ---------- */
@@ -182,6 +182,8 @@ Object.keys(DEFAULTS).forEach(id => {
 // UnoRouter doesn't recognise the "openai/" prefix; clean up a model id saved before this change.
 if (/^openai\/gpt-image/i.test($('model').value)) { $('model').value = $('model').value.replace(/^openai\//i, ''); store('batch2.model', $('model').value); }
 if (!$('wrongSize').value) $('wrongSize').value = 'flag'; // the old "resize" choice was removed (Nov 13)
+// Planning effort now defaults to "Don't send" (Nov 13): some models reject "high". Reset an older saved choice once.
+if (load('batch2.complexityReset') === null) { $('complexity').value = ''; store('batch2.complexity', ''); store('batch2.complexityReset', '1'); }
 const savedKey = load('apiKey');
 if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
 function saveKey(){ $('rememberKey').checked ? store('apiKey', $('apiKey').value.trim()) : forget('apiKey'); }

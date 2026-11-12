@@ -173,7 +173,7 @@ function store(k, v){ try{ localStorage.setItem(NS + k, v); }catch(e){} }
 function load(k){ try{ return localStorage.getItem(NS + k); }catch(e){ return null; } }
 function forget(k){ try{ localStorage.removeItem(NS + k); }catch(e){} }
 $('base').value = load('base') || DEFAULT_BASE;
-$('model').value = DEFAULT_MODEL; $('quality').value = 'max'; $('complexity').value = 'high';
+$('model').value = DEFAULT_MODEL; $('quality').value = 'max'; $('complexity').value = '';
 $('extra').value = load('extra') || DEFAULT_EXTRA;
 $('prompt').value = load('prompt') || DEFAULT_PROMPT;
 ['base', 'apiMode', 'model', 'quality', 'complexity', 'sizeMode', 'count', 'extra', 'prompt'].forEach(id => {
@@ -190,6 +190,8 @@ const MODE_HINTS = {
 function showModeHint(){ $('modeHint').textContent = MODE_HINTS[$('apiMode').value].replace('{base}', $('base').value.trim().replace(/\/+$/, '')); }
 $('apiMode').addEventListener('change', showModeHint); $('base').addEventListener('input', showModeHint); showModeHint();
 $('resetPrompt').onclick = () => { $('prompt').value = DEFAULT_PROMPT; forget('prompt'); };
+// Planning effort now defaults to "Don't send" (Nov 13): some models reject "high". Reset an older saved choice once.
+if (load('complexityReset') === null) { $('complexity').value = ''; store('complexity', ''); store('complexityReset', '1'); }
 const savedKey = load('apiKey');
 if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
 function saveKey(){ $('rememberKey').checked ? store('apiKey', $('apiKey').value.trim()) : forget('apiKey'); }
