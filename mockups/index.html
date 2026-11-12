@@ -89,7 +89,7 @@ code{font-size:.9em}
             <select id="format"><option value="jpeg">JPEG</option><option value="png">PNG</option><option value="webp">WebP</option></select></div>
         </div>
         <label for="outSize">Mockup size (width x height)</label>
-        <input type="text" id="outSize" class="mono" spellcheck="false" placeholder="2048x2560">
+        <input type="text" id="outSize" class="mono" spellcheck="false" placeholder="1122x1402">
         <div class="hint" id="sizeHint"></div>
         <div class="row">
           <div><label for="parallel">API calls at once</label>
@@ -172,7 +172,7 @@ https://cdn.shopify.com/s/files/.../quilt.png"></textarea>
         <div class="row" style="margin-top:10px" id="folderRow"><button id="pickOut">Choose output folder…</button></div>
         <div class="status" id="saveStatus"></div>
         <div class="hint" id="saveHint"></div>
-        <div class="hint">Files are named like <code>BL9112390-folded.jpg</code> (2048 × 2560, 4:5), <code>-bed.jpg</code> and <code>-outdoor.jpg</code>, using the product code (or the title's code, or the link's file name). Mockups already in the output folder are skipped, so you can run the same list again to finish it or retry failures.</div>
+        <div class="hint">Files are named like <code>BL9112390-folded.jpg</code> (1122 × 1402, 4:5), <code>-bed.jpg</code> and <code>-outdoor.jpg</code>, using the product code (or the title's code, or the link's file name). Mockups already in the output folder are skipped, so you can run the same list again to finish it or retry failures.</div>
 
         <div class="row" style="margin-top:14px">
           <button id="testOne">Run the first quilt only</button>
@@ -223,7 +223,7 @@ const TYPES = [
   { key: 'bed', label: 'Bed', box: 'doBed', tpl: 'tplBed', suffix: 'bed' },
   { key: 'outdoor', label: 'Hanging outdoor', box: 'doOutdoor', tpl: 'tplOutdoor', suffix: 'outdoor' }
 ];
-const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', format: 'jpeg', outSize: '2048x2560',
+const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', format: 'jpeg', outSize: '1122x1402',
   parallel: '50', sizeRetries: '0', wrongSize: 'resize', extra: '{}', imageField: 'auto', timeout: '15', saveMode: 'folder', bedRef: 'https://cdn.shopify.com/s/files/1/0964/6352/0108/files/2ed30808432372bca5f3c4caf810b4b8_3.jpg?v=1794489648' };
 
 /* ---------- settings ---------- */
@@ -232,7 +232,9 @@ function store(k, v){ try{ localStorage.setItem(NS + k, v); }catch(e){} }
 function load(k){ try{ return localStorage.getItem(NS + k); }catch(e){ return null; } }
 function forget(k){ try{ localStorage.removeItem(NS + k); }catch(e){} }
 Object.keys(DEFAULTS).forEach(id => {
-  const v = load('mock.' + id); $(id).value = v !== null ? v : DEFAULTS[id];
+  let v = load('mock.' + id);
+  if (id === 'outSize' && v === '2048x2560') v = null; // old default (Nov 12)
+  $(id).value = v !== null ? v : DEFAULTS[id];
   $(id).addEventListener('change', () => store('mock.' + id, $(id).value));
 });
 TYPES.forEach(t => {
@@ -299,6 +301,8 @@ function showSizeHint(){
 function ratioText(z){
   const g = (a, b) => b ? g(b, a % b) : a, d = g(z.W, z.H);
   let a = z.W / d, b = z.H / d;
+  // near-simple shapes like 1122x1402 read as 4:5 (within 1%)
+  if (a > 32 || b > 32) for (let q = 1; q <= 16; q++) { const p = Math.round(z.W / z.H * q); if (p && Math.abs(p / q - z.W / z.H) / (z.W / z.H) < 0.01) { a = p; b = q; break; } }
   if (a > 32 || b > 32) { const r = z.W / z.H; a = r >= 1 ? +r.toFixed(2) : 1; b = r >= 1 ? 1 : +(1 / r).toFixed(2); }
   return (z.W === z.H ? 'Square' : z.H > z.W ? 'Portrait' : 'Landscape') + ' ' + a + ':' + b;
 }
