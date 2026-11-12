@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quilt Mockup Batch</title>
+<style>
+:root{
+  --bg:#f6f5f2;--panel:#ffffff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e1dc;
+  --accent:#d9480f;--accent-ink:#ffffff;--soft:#fbf3ee;--err:#b42318;--ok:#2f7d4f;--warn:#9a6700;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#141416;--panel:#1c1c1f;--ink:#ececee;--muted:#9a9aa2;--line:#2e2e33;
+  --accent:#ff7a45;--accent-ink:#141416;--soft:#2a1f1a;--err:#ff6b5e;--ok:#5cc28a;--warn:#e3b341;
+}}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+.wrap{max-width:1200px;margin:0 auto;padding:24px 16px 60px}
+header h1{font-size:22px;margin:0;letter-spacing:-.01em}
+header p{margin:4px 0 0;color:var(--muted)}
+a{color:var(--accent)}
+.grid{display:grid;grid-template-columns:380px 1fr;gap:20px;margin-top:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card+.card{margin-top:16px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px;font-weight:600}
+h2:not(:first-child){margin-top:20px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,select,textarea,button{font:inherit;color:inherit}
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+textarea{min-height:150px;resize:vertical;font-size:13px;line-height:1.5}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.check{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:8px}
+.checks{display:flex;gap:16px;flex-wrap:wrap}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+button{cursor:pointer;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 14px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.small{padding:4px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.row>*{flex:1;min-width:0}
+.row>button{flex:none}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:12px;transition:.15s}
+.drop.over{border-color:var(--accent);background:var(--soft)}
+.pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;border:1px solid var(--line);white-space:nowrap}
+.pill.ok{color:var(--ok);border-color:currentColor}.pill.err{color:var(--err);border-color:currentColor}
+.pill.warn{color:var(--warn);border-color:currentColor}.pill.busy{color:var(--accent);border-color:currentColor}
+.status{font-size:13px;margin-top:8px}
+.status.err{color:var(--err)}.status.ok{color:var(--ok)}
+.bar{height:8px;background:var(--bg);border:1px solid var(--line);border-radius:99px;overflow:hidden;margin:10px 0}
+.bar div{height:100%;width:0;background:var(--accent);transition:width .3s}
+.counts{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.counts b{color:var(--ink)}
+.tablewrap{max-height:640px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{position:sticky;top:0;background:var(--panel);color:var(--muted);font-weight:600;z-index:1}
+td.f{max-width:280px;word-break:break-all}
+td.note{color:var(--muted);max-width:340px}
+td.note.err{color:var(--err)}
+details summary{cursor:pointer;color:var(--muted);font-size:13px}
+details.prompt summary{font-size:12px}
+details.prompt div{white-space:pre-wrap;font-size:12px;margin-top:4px;color:var(--ink)}
+code{font-size:.9em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Quilt Mockup Batch <span style="color:var(--muted);font-weight:400">· UnoRouter</span></h1>
+    <p>Paste or load quilt image links. Each quilt gets three lifestyle mockups (folded, on a bed, hanging outdoors) made with the saved mockup prompts, and they're saved to a folder on your computer. <a href="../">Clean one fabric photo</a> · <a href="../batch-clean/">Clean many photos</a> · <a href="../batch/">Generate images from prompts</a></p>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>UnoRouter</h2>
+        <label for="base">API base URL</label>
+        <input type="text" id="base" spellcheck="false">
+        <label for="apiKey">API key</label>
+        <input type="password" id="apiKey" placeholder="Your UnoRouter key" autocomplete="off">
+        <div class="check"><input type="checkbox" id="rememberKey"><span>Remember key in this browser</span></div>
+        <label for="model">Model</label>
+        <input type="text" id="model" spellcheck="false">
+        <div class="row">
+          <div><label for="quality">Quality</label>
+            <select id="quality"><option value="max">Max</option><option value="xhigh">Extra high</option><option value="high">High</option><option value="medium">Medium</option></select></div>
+          <div><label for="format">File type</label>
+            <select id="format"><option value="jpeg">JPEG</option><option value="png">PNG</option><option value="webp">WebP</option></select></div>
+        </div>
+        <label for="outSize">Mockup size (width x height)</label>
+        <input type="text" id="outSize" class="mono" spellcheck="false" placeholder="2048x2560">
+        <div class="hint" id="sizeHint"></div>
+        <div class="row">
+          <div><label for="parallel">API calls at once</label>
+            <input type="number" id="parallel" min="1" max="100"></div>
+          <div><label for="sizeRetries">Ask again if size is wrong</label>
+            <input type="number" id="sizeRetries" min="0" max="5"></div>
+        </div>
+        <label for="wrongSize">If UnoRouter returns the wrong size</label>
+        <select id="wrongSize">
+          <option value="resize">Resize it to the mockup size, and flag it</option>
+          <option value="flag">Save it as returned, and flag it</option>
+          <option value="skip">Don't save it (counts as failed)</option>
+        </select>
+        <details style="margin-top:12px"><summary>More request options</summary>
+          <label for="extra">Extra request fields (JSON)</label>
+          <textarea id="extra" class="mono" spellcheck="false" style="min-height:60px"></textarea>
+          <div class="hint">Added to every request, e.g. <code>{"background": "opaque"}</code>. UnoRouter only passes on fields it knows; anything else is dropped silently.</div>
+          <label for="imageField">Upload field name</label>
+          <select id="imageField">
+            <option value="auto">Automatic: "image" for one photo, "image[]" for two</option>
+            <option value="image">Always "image"</option>
+            <option value="image[]">Always "image[]"</option>
+          </select>
+          <label for="timeout">Timeout per image (minutes)</label>
+          <input type="number" id="timeout" min="2" max="60">
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>Bed reference photo (Image 2)</h2>
+        <input type="text" id="bedRef" spellcheck="false" placeholder="Link to the black iron bed photo">
+        <div class="hint">The black iron scrollwork bed photo. It is sent with every Bed mockup as the second image ("Image 2 controls bed and camera only"); the quilt on it is not copied. Left empty, the Bed prompt describes the bed in words instead.</div>
+      </div>
+
+      <div class="card">
+        <h2>Prompts</h2>
+        <div class="hint" style="margin-top:0">From "Quilt Mockup Prompts.xlsx". <code>{TITLE}</code> is the product title, <code>{SCENE}</code> the scene picked for the quilt, <code>{NOTES}</code> any notes from your list, <code>{BED}</code> the Image 2 wording, <code>{RATIO}</code> the shape of the mockup size (e.g. "Portrait 4:5").</div>
+        <label for="tplFolded">Folded</label>
+        <textarea id="tplFolded" spellcheck="false"></textarea>
+        <label for="tplBed">Bed</label>
+        <textarea id="tplBed" spellcheck="false"></textarea>
+        <label for="tplOutdoor">Hanging outdoor</label>
+        <textarea id="tplOutdoor" spellcheck="false"></textarea>
+        <label for="rules">Scene for each kind of quilt</label>
+        <textarea id="rules" class="mono" spellcheck="false" style="min-height:220px"></textarea>
+        <div class="hint">One rule per line: <code>words in the title =&gt; scene</code>. The first rule with a matching word wins; <code>*</code> is the scene for everything else. A <code>scene</code> column in your list overrides these.</div>
+        <div class="row" style="margin-top:8px"><button id="resetPrompts">Reset prompts and scenes to default</button></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>Quilts</h2>
+        <div class="drop" id="drop">
+          <textarea id="list" class="mono" spellcheck="false" style="min-height:130px" placeholder="Paste quilt image links, one per line, or rows copied from a spreadsheet (with the header row).
+Columns it understands: Product code, Product title, Original quilt image URL, Scene, Notes.
+
+https://cdn.shopify.com/s/files/.../quilt.png"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button id="loadList" class="small">Use this list</button>
+            <label class="small" style="flex:none;margin:0;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:4px 10px;color:var(--ink);font-size:13px">Choose a CSV…<input type="file" id="csv" accept=".csv,.tsv,.txt,text/csv,text/plain" hidden></label>
+            <span class="hint" style="margin:0;align-self:center">or drop a CSV here</span>
+          </div>
+        </div>
+        <div class="hint">Each image link is used once, even if the list repeats it (like the spreadsheet, which has one row per mockup). The quilt photo is downloaded once and sent to UnoRouter exactly as downloaded, never converted. Shopify links get the original upload, not a resized copy.</div>
+        <div class="status" id="inStatus"></div>
+
+        <h2>Mockups for each quilt</h2>
+        <div class="checks">
+          <label class="check" style="margin:0"><input type="checkbox" id="doFolded" checked> Folded</label>
+          <label class="check" style="margin:0"><input type="checkbox" id="doBed" checked> Bed</label>
+          <label class="check" style="margin:0"><input type="checkbox" id="doOutdoor" checked> Hanging outdoor</label>
+        </div>
+
+        <h2>Save to</h2>
+        <select id="saveMode">
+          <option value="folder">A folder I choose (recommended)</option>
+          <option value="downloads">The browser's Downloads folder</option>
+        </select>
+        <div class="row" style="margin-top:10px" id="folderRow"><button id="pickOut">Choose output folder…</button></div>
+        <div class="status" id="saveStatus"></div>
+        <div class="hint" id="saveHint"></div>
+        <div class="hint">Files are named like <code>BL9112390-folded.jpg</code> (2048 × 2560, 4:5), <code>-bed.jpg</code> and <code>-outdoor.jpg</code>, using the product code (or the title's code, or the link's file name). Mockups already in the output folder are skipped, so you can run the same list again to finish it or retry failures.</div>
+
+        <div class="row" style="margin-top:14px">
+          <button id="testOne">Run the first quilt only</button>
+          <button id="start" class="primary">Start batch</button>
+          <button id="stop" disabled>Stop</button>
+          <button id="clear">Clear list</button>
+        </div>
+        <div class="status" id="batchStatus"></div>
+      </div>
+
+      <div class="card">
+        <h2>Progress</h2>
+        <div class="bar"><div id="barFill"></div></div>
+        <div class="counts" id="counts"><span>No quilts yet.</span></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>#</th><th>Quilt</th><th>Mockup</th><th>Status</th><th>Note</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* ---------- prompts from "Quilt Mockup Prompts.xlsx" ---------- */
+const COMMON_END = 'Retain original major motifs, exact arrangement, proportions, palette, lettering, border order and binding. Artwork follows folds continuously, hidden portions occluded not rearranged. Preserve depicted construction with matte cloth, low loft, subtle stitching, natural light and contact shadows. No invented motifs, extra panels, repeated borders, logos, watermark or text overlays. {RATIO}.';
+const DEFAULT_TPL = {
+  folded: 'Use case: product-mockup. Photorealistic folded lifestyle mockup of {TITLE}. Image 1 is exact quilt design authority. ONE quilt neatly folded into a compact rectangular stack on a wooden bench or ottoman, three-quarter view. Clear layered edges and soft folds. Show only physically corresponding portions of the original design; never shrink whole design onto the folded top. Hide unverified reverse fabric. Scene: {SCENE}. {NOTES} ' + COMMON_END,
+  bed: 'Use case: product-mockup. Photorealistic bed lifestyle mockup of {TITLE}. Image 1 is exact quilt design authority. {BED}black iron scrollwork headboard and foreground footboard, elevated centered foot-end view, close portrait frame. Quilt covers mattress with generous natural overhang, shallow asymmetric upper corner folds. Original binding ends ONCE; no added fabric or duplicate lower border. Scene: {SCENE}. {NOTES} ' + COMMON_END,
+  outdoor: 'Use case: product-mockup. Photorealistic outdoor lifestyle mockup of {TITLE}. Image 1 is exact quilt design authority. Complete quilt hanging vertically from wooden rail with visible clips outside on sheltered porch or garden pergola. Clearly outdoor landscape. Preserve original full outline and single binding. Scene: {SCENE}; outdoors use a sheltered garden porch with a landscape matching the artwork. {NOTES} ' + COMMON_END
+};
+// Scenes used in the spreadsheet, with the kinds of quilts they were used for.
+const DEFAULT_RULES = [
+  'christmas, xmas, nativity, nutcracker, snowman, gnome, santa, holiday, holly, reindeer, bethlehem, manger, sugar plum => A warm seasonal cottage with understated holiday greenery and colors matching this quilt',
+  'surfing, surf, swimming, swim, kayaking, canoeing, fishing, fly fishing, bass fishing, sailing, scuba, diving, ocean, oceans, sea, turtle, coastal, beach, rafting, otter, seashell, starfish, swordfish, oyster, whale, dolphin, coast guard, rowing => An airy waterside retreat with weathered wood, natural daylight, and subtle props appropriate to the specific quilt subject',
+  'guitar, bass guitar, piano, violin, drum, drumming, saxophone, music, cello, ukulele, banjo, trumpet, flute, harp => An inviting music room with one relevant instrument subtly visible, warm wood and matching color accents',
+  'nurse, physician, doctor, veterinarian, lawyer, teacher, pilot, firefighter, engineer, engineering, dentist, paramedic, paramedics, pharmacist, police, officer, military, veteran, lineworker, lineworkers, postal carrier, biologist, scientist, accountant, chef, mechanic, electrician, plumber, soldier => A comfortable home study with understated accents acknowledging the specific profession in the quilt, no uniforms or invented text',
+  'mountain, mountaineering, mountain biking, hunting, duck hunting, hunter, forest, woodland, camping, hiking, bear, deer, elk, moose, west virginia => A peaceful woodland lodge with natural wood and forest views reflecting the outdoor design',
+  'dog, dogs, puppy, cat, cats, kitten, poodle, terrier, retriever, shepherd, bulldog, dachshund, beagle, husky, collie, corgi, schnauzer, chihuahua, pomeranian, rottweiler, boxer dog, labrador, doodle, great dane, shih tzu, maine coon, basset hound, pug, doberman, spaniel, sheltie, maltese, pit bull, greyhound, dalmatian, akita, havanese, bichon => A welcoming pet-loving cottage, warm wood, natural daylight, discreet accents matching the exact animal theme',
+  'rodeo, ranch, cowboy, cowgirl, western, barrel racing, bull riding, horse racing, auto racing, motorcycle racing, drag racing => A warm hobby enthusiast\'s retreat with wood furnishings and understated accessories matching the specific activity shown',
+  'soccer, basketball, baseball, softball, football, tennis, volleyball, golf, hockey, ice hockey, rugby, lacrosse, wrestling, boxing, karate, judo, taekwondo, pickleball, cycling, bicycle, triathlon, skiing, snowboarding, skating, ice skating, skateboarding, bowling, archery, powerlifting, weightlifting, gymnastics, cheerleading, track and field, running, climbing, ballet, dance, dancer, yoga, pilates, racing, billiards, chess, darts, cricket, badminton, fencing, dressage, eventing, motocross => A welcoming hobby retreat with discreet equipment appropriate to the exact sport depicted, neutral furniture and matching quilt colors',
+  '* => A comfortable cottage with restrained accents and colors echoing the exact quilt design'
+].join('\n');
+const TYPES = [
+  { key: 'folded', label: 'Folded', box: 'doFolded', tpl: 'tplFolded', suffix: 'folded' },
+  { key: 'bed', label: 'Bed', box: 'doBed', tpl: 'tplBed', suffix: 'bed' },
+  { key: 'outdoor', label: 'Hanging outdoor', box: 'doOutdoor', tpl: 'tplOutdoor', suffix: 'outdoor' }
+];
+const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', format: 'jpeg', outSize: '2048x2560',
+  parallel: '50', sizeRetries: '0', wrongSize: 'resize', extra: '{}', imageField: 'auto', timeout: '15', saveMode: 'folder', bedRef: 'https://cdn.shopify.com/s/files/1/0964/6352/0108/files/2ed30808432372bca5f3c4caf810b4b8_3.jpg?v=1794489648' };
+
+/* ---------- settings ---------- */
+const NS = 'gptstudio.uno.';
+function store(k, v){ try{ localStorage.setItem(NS + k, v); }catch(e){} }
+function load(k){ try{ return localStorage.getItem(NS + k); }catch(e){ return null; } }
+function forget(k){ try{ localStorage.removeItem(NS + k); }catch(e){} }
+Object.keys(DEFAULTS).forEach(id => {
+  const v = load('mock.' + id); $(id).value = v !== null ? v : DEFAULTS[id];
+  $(id).addEventListener('change', () => store('mock.' + id, $(id).value));
+});
+TYPES.forEach(t => {
+  $(t.tpl).value = (load('mock.tpl.' + t.key) || DEFAULT_TPL[t.key]).replace(/Portrait 3:4\./g, '{RATIO}.');
+  $(t.tpl).addEventListener('change', () => store('mock.tpl.' + t.key, $(t.tpl).value));
+  const on = load('mock.do.' + t.key); if (on !== null) $(t.box).checked = on === '1';
+  $(t.box).addEventListener('change', () => { store('mock.do.' + t.key, $(t.box).checked ? '1' : '0'); if (!running) { buildJobs(); renderRows(); } });
+});
+$('rules').value = load('mock.rules') || DEFAULT_RULES;
+$('rules').addEventListener('change', () => { store('mock.rules', $('rules').value); if (!running) { quilts.forEach(setScene); renderRows(); } });
+$('resetPrompts').onclick = () => {
+  TYPES.forEach(t => { $(t.tpl).value = DEFAULT_TPL[t.key]; forget('mock.tpl.' + t.key); });
+  $('rules').value = DEFAULT_RULES; forget('mock.rules');
+  if (!running) { quilts.forEach(setScene); renderRows(); }
+};
+const savedKey = load('apiKey');
+if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
+function saveKey(){ $('rememberKey').checked ? store('apiKey', $('apiKey').value.trim()) : forget('apiKey'); }
+$('apiKey').addEventListener('change', saveKey);
+$('rememberKey').addEventListener('change', saveKey);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ---------- sizes (gpt-image-2.5-sunburst limits) ----------
+   Sides multiples of 16, at most 3840px a side, 655,360 to 8,294,400 pixels, aspect ratio 1:3 to 3:1. */
+const MAX_SIDE = 3840, MAX_PX = 8294400, MIN_PX = 655360;
+const ceil16 = x => Math.ceil(x / 16) * 16, floor16 = x => Math.floor(x / 16) * 16;
+function isLegal(W, H){ return W % 16 === 0 && H % 16 === 0 && W <= MAX_SIDE && H <= MAX_SIDE && W * H <= MAX_PX && W * H >= MIN_PX && W / H <= 3 && H / W <= 3; }
+function coverSize(T){
+  const r = T.W / T.H; let best = null;
+  for (let W = Math.max(16, ceil16(T.W)); W <= Math.min(MAX_SIDE, ceil16(T.W * 1.6)); W += 16) {
+    for (const H of [floor16(W / r), ceil16(W / r)]) {
+      if (H < T.H || !isLegal(W, H)) continue;
+      const score = Math.abs(W / H / r - 1) + 0.005 * (W * H / (T.W * T.H) - 1);
+      if (!best || score < best.score) best = { W, H, score };
+    }
+  }
+  return best && { W: best.W, H: best.H };
+}
+// What to ask the API for (req) and the size of the saved file (final).
+function planSize(text){
+  const m = String(text || '').match(/(\d{2,5})\s*[x×*]\s*(\d{2,5})/i);
+  if (!m) throw new Error('The mockup size should look like 1086x1448.');
+  let W = +m[1], H = +m[2];
+  if (W / H > 3 || H / W > 3) throw new Error('The mockup size must be between 1:3 and 3:1.');
+  const s = Math.min(1, MAX_SIDE / W, MAX_SIDE / H, Math.sqrt(MAX_PX / (W * H)));
+  if (s < 1) { W = Math.floor(W * s); H = Math.floor(H * s); }
+  if (isLegal(W, H)) return { req: { W, H }, final: { W, H } };
+  let T = { W, H };
+  if (W * H < MIN_PX) { const g = Math.sqrt(MIN_PX / (W * H)); T = { W: Math.ceil(W * g), H: Math.ceil(H * g) }; }
+  const cover = coverSize(T);
+  if (!cover) throw new Error('No size the model can make fits ' + W + 'x' + H + '.');
+  return { req: cover, final: { W, H } };
+}
+function showSizeHint(){
+  try {
+    const p = planSize($('outSize').value);
+    $('sizeHint').textContent = ratioText(p.final) + '. ' + (p.req.W === p.final.W && p.req.H === p.final.H ? 'UnoRouter makes this size directly.'
+      : 'Asks UnoRouter for ' + p.req.W + ' × ' + p.req.H + ' (the nearest size it accepts, same shape) and scales to ' + p.final.W + ' × ' + p.final.H + '.');
+    $('sizeHint').style.color = '';
+  } catch (e) { $('sizeHint').textContent = e.message; $('sizeHint').style.color = 'var(--err)'; }
+}
+// "Portrait 4:5" for 2048x2560, "Portrait 3:4" for 1086x1448, "Square 1:1" ...
+function ratioText(z){
+  const g = (a, b) => b ? g(b, a % b) : a, d = g(z.W, z.H);
+  let a = z.W / d, b = z.H / d;
+  if (a > 32 || b > 32) { const r = z.W / z.H; a = r >= 1 ? +r.toFixed(2) : 1; b = r >= 1 ? 1 : +(1 / r).toFixed(2); }
+  return (z.W === z.H ? 'Square' : z.H > z.W ? 'Portrait' : 'Landscape') + ' ' + a + ':' + b;
+}
+$('outSize').addEventListener('input', showSizeHint); showSizeHint();
+
+/* ---------- scenes ---------- */
+function parseRules(text){
+  return text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#') && l.includes('=>')).map(l => {
+    const i = l.indexOf('=>'), words = l.slice(0, i).trim(), scene = l.slice(i + 2).trim();
+    if (words === '*') return { any: true, scene };
+    const list = words.split(',').map(w => w.trim().toLowerCase()).filter(Boolean)
+      .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s-]+'));
+    return { re: new RegExp('\\b(' + list.join('|') + ')\\b', 'i'), scene };
+  });
+}
+function pickScene(text){
+  const rules = parseRules($('rules').value);
+  for (const r of rules) if (r.any || r.re.test(text)) return r.scene;
+  return 'A comfortable cottage with restrained accents and colors echoing the exact quilt design';
+}
+// Matched against the product title (or, without one, the link's file name).
+function setScene(q){ q.scene = q.sceneOverride || pickScene([q.title, q.titleHint].filter(Boolean).join(' ')); }
+
+/* ---------- reading the list ---------- */
+function parseTable(text){
+  text = text.replace(/^﻿/, '');
+  const first = text.split(/\r?\n/, 1)[0];
+  const delim = [';', '\t'].reduce((a, d) => first.split(d).length > first.split(a).length ? d : a, ',');
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"' && !cell.trim()) q = true;
+    else if (c === delim) { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows.map(r => r.map(x => x.trim()));
+}
+const isUrl = x => /^https?:\/\/\S+$/i.test(x || '');
+const safeName = x => x.replace(/[<>:"\/\\|?*\x00-\x1f]+/g, '_').replace(/^[\s.]+|[\s.]+$/g, '').slice(0, 120);
+const CODE_RE = /\b([A-Z]{1,6}\d{5,}(?:-[A-Z]{1,4})?)\b/;
+function fileFromUrl(url){
+  let last = '';
+  try { last = decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() || ''); } catch (e) {}
+  return last.replace(/\.[a-z0-9]{2,5}$/i, '');
+}
+let quilts = [], jobs = [], running = false, stopping = false;
+function readList(text, label){
+  const rows = parseTable(text).filter(r => r.some(Boolean));
+  if (!rows.length) { $('inStatus').textContent = 'The list is empty.'; $('inStatus').className = 'status err'; return; }
+  const header = !rows[0].some(isUrl) ? rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()) : null;
+  const body = rows.slice(header ? 1 : 0), first = header ? 2 : 1;
+  const col = (re, not) => header ? header.findIndex(h => re.test(h) && !(not && not.test(h))) : -1;
+  let urlCol = col(/original|source/, /mockup|uploaded/);
+  if (urlCol < 0) urlCol = col(/\b(url|link|image|photo|src)s?\b|url|link/, /mockup|uploaded/);
+  if (urlCol < 0 || !body.some(r => isUrl(r[urlCol]))) {
+    let best = 0; urlCol = -1;
+    const width = Math.max(0, ...body.map(r => r.length));
+    for (let c = 0; c < width; c++) { if (header && /mockup|uploaded/.test(header[c] || '')) continue; const k = body.filter(r => isUrl(r[c])).length; if (k > best) { best = k; urlCol = c; } }
+  }
+  if (urlCol < 0) { $('inStatus').textContent = 'No image links (starting with http:// or https://) found in ' + label + '.'; $('inStatus').className = 'status err'; return; }
+  const codeCol = col(/\b(product code|code|sku|handle)\b/), titleCol = col(/\b(product title|title|product name|name|product)\b/, /code|url|link|image/);
+  const sceneCol = col(/\bscene\b/), notesCol = col(/\b(notes?|extra|instructions?|corrections?)\b/);
+  const known = new Set(quilts.map(q => q.url)), bases = new Set(quilts.map(q => q.fileBase));
+  let added = 0, skipped = 0, repeats = 0;
+  body.forEach((r, k) => {
+    const url = r[urlCol];
+    if (!isUrl(url)) { skipped++; return; }
+    if (known.has(url)) { repeats++; return; }
+    known.add(url);
+    const title = titleCol >= 0 ? r[titleCol] || '' : '';
+    const code = (codeCol >= 0 && r[codeCol]) || (title.match(CODE_RE) || [])[1] || '';
+    let base = safeName(code || fileFromUrl(url)) || 'quilt';
+    if (bases.has(base)) base += '_row' + (k + first);
+    bases.add(base);
+    const q = { url, title, code, fileBase: base, titleHint: title ? '' : fileFromUrl(url),
+      sceneOverride: sceneCol >= 0 ? r[sceneCol] || '' : '', notes: notesCol >= 0 ? r[notesCol] || '' : '' };
+    setScene(q);
+    quilts.push(q); added++;
+  });
+  $('inStatus').textContent = quilts.length + ' quilt' + (quilts.length === 1 ? '' : 's') + ' ready (' + added + ' added from ' + label + ')' +
+    (repeats ? '; ' + repeats + ' repeated link' + (repeats === 1 ? '' : 's') + ' used once' : '') +
+    (skipped ? '; ' + skipped + ' row' + (skipped === 1 ? '' : 's') + ' without a link left out' : '') + '.';
+  $('inStatus').className = 'status ok';
+  buildJobs(); renderRows();
+}
+$('loadList').onclick = () => { if (!running && $('list').value.trim()) { readList($('list').value, 'the pasted list'); $('list').value = ''; } };
+async function addCsvFiles(files){ if (running) return; for (const f of files) readList(await f.text(), f.name); }
+$('csv').addEventListener('change', e => { addCsvFiles([...e.target.files]); e.target.value = ''; });
+const drop = $('drop');
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); drop.classList.add('over'); } }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, () => drop.classList.remove('over')));
+drop.addEventListener('drop', e => { if (e.dataTransfer.files.length) { e.preventDefault(); addCsvFiles([...e.dataTransfer.files]); } });
+$('clear').onclick = () => { if (running) return; quilts = []; jobs = []; renderRows(); $('inStatus').textContent = ''; setStatus(''); };
+
+/* ---------- jobs ---------- */
+const extOf = () => $('format').value === 'jpeg' ? 'jpg' : $('format').value;
+function buildJobs(){
+  const types = TYPES.filter(t => $(t.box).checked);
+  jobs = [];
+  quilts.forEach((q, qi) => types.forEach(t => jobs.push({ i: jobs.length, qn: qi + 1, quilt: q, type: t, file: q.fileBase + '-' + t.suffix + '.' + extOf(), status: 'waiting', note: '', attempts: 0 })));
+}
+const LABEL = { waiting: ['Waiting', ''], exists: ['Already saved', 'ok'], dl: ['Downloading quilt', 'busy'], gen: ['Generating', 'busy'],
+  retry: ['Retrying', 'warn'], save: ['Saving', 'busy'], done: ['Done', 'ok'], flagged: ['Done, size was wrong', 'warn'],
+  failed: ['Failed', 'err'], stopped: ['Not run', ''] };
+function renderRows(){ $('rows').innerHTML = jobs.map(j => '<tr id="r' + j.i + '"></tr>').join(''); jobs.forEach(paint); scheduleCounts(); }
+function paint(j){
+  const tr = $('r' + j.i); if (!tr) return;
+  const [txt, cls] = LABEL[j.status] || [j.status, ''];
+  const q = j.quilt, firstOfQuilt = !jobs[j.i - 1] || jobs[j.i - 1].quilt !== q;
+  const quiltCell = firstOfQuilt ? '<b>' + esc(q.code || q.fileBase) + '</b>' + (q.title ? '<div>' + esc(q.title) + '</div>' : '') + '<div class="hint" style="margin:0">' + esc(q.url) + '</div>' : '';
+  const note = j.note || (j.status === 'waiting' ? 'Scene: ' + q.scene : '');
+  tr.innerHTML = '<td>' + (firstOfQuilt ? j.qn : '') + '</td><td class="f">' + quiltCell + '</td><td>' + j.type.label + '<div class="hint mono" style="margin:0">' + esc(j.file) + '</div></td>' +
+    '<td><span class="pill ' + cls + '">' + txt + (j.status === 'gen' && j.attempts > 1 ? ' (try ' + j.attempts + ')' : '') + '</span></td>' +
+    '<td class="note' + (j.status === 'failed' ? ' err' : '') + '">' + esc(note) + (j.prompt ? '<details class="prompt"><summary>Prompt sent</summary><div>' + esc(j.prompt) + '</div></details>' : '') + '</td>';
+  scheduleCounts();
+}
+let t0 = 0, countsQueued = false;
+function scheduleCounts(){ if (!countsQueued) { countsQueued = true; requestAnimationFrame(() => { countsQueued = false; counts(); }); } }
+function counts(){
+  if (!jobs.length) { $('counts').innerHTML = '<span>' + (quilts.length ? 'Tick at least one kind of mockup.' : 'No quilts yet.') + '</span>'; $('barFill').style.width = 0; return; }
+  const c = s => jobs.filter(j => j.status === s).length;
+  const total = jobs.length, finished = c('done') + c('flagged') + c('failed') + c('exists');
+  $('barFill').style.width = (100 * finished / total) + '%';
+  const el = (b, t) => '<span><b>' + b + '</b> ' + t + '</span>';
+  const parts = [el(quilts.length, 'quilts'), el(total, 'mockups'), el(c('done'), 'done')];
+  if (c('flagged')) parts.push(el(c('flagged'), 'size was wrong'));
+  if (c('exists')) parts.push(el(c('exists'), 'already saved'));
+  if (c('failed')) parts.push(el(c('failed'), 'failed'));
+  const busy = c('dl') + c('gen') + c('retry') + c('save'); if (busy) parts.push(el(busy, 'working'));
+  if (running && t0) parts.push('<span>' + Math.round((Date.now() - t0) / 60000) + ' min</span>');
+  $('counts').innerHTML = parts.join('');
+}
+function setStatus(t, kind){ const s = $('batchStatus'); s.textContent = t; s.className = 'status' + (kind ? ' ' + kind : ''); }
+function buildPrompt(job, s){
+  const q = job.quilt;
+  let notes = (q.notes || '').trim(); if (notes && !/[.!?]$/.test(notes)) notes += '.';
+  return s.tpl[job.type.key]
+    .replace(/\{TITLE\}/g, q.title || 'this quilt')
+    .replace(/\{SCENE\}/g, q.scene.replace(/[\s.;]+$/, ''))
+    .replace(/\{BED\}/g, s.bedRef ? 'Image 2 controls bed and camera only: ' : 'Bed and camera: ')
+    .replace(/\{NOTES\}/g, notes)
+    .replace(/\{RATIO\}/g, ratioText(s.plan.final))
+    .replace(/[ \t]{2,}/g, ' ').trim();
+}
+
+/* ---------- saving ---------- */
+const canPick = 'showDirectoryPicker' in window;
+let outDir = null;
+function showSave(){
+  const folder = $('saveMode').value === 'folder' && canPick;
+  $('folderRow').hidden = !folder;
+  $('saveStatus').textContent = folder ? (outDir ? 'Saving to folder "' + outDir.name + '".' : 'No output folder chosen yet.') : '';
+  $('saveStatus').className = 'status' + (folder && outDir ? ' ok' : '');
+  $('saveHint').textContent = !canPick && $('saveMode').value === 'folder'
+    ? 'This browser can\'t save into a chosen folder (Chrome and Edge can), so mockups go to the Downloads folder. Allow "multiple downloads" if the browser asks.'
+    : folder ? 'Mockups are written straight into the folder.'
+    : 'Each mockup is a separate download. The browser asks once whether to allow multiple downloads: click Allow.';
+}
+$('saveMode').addEventListener('change', showSave); showSave();
+$('pickOut').onclick = async () => {
+  try { outDir = await window.showDirectoryPicker({ id: 'mockups-out', mode: 'readwrite' }); }
+  catch (e) { if (e.name !== 'AbortError') $('saveStatus').textContent = 'Could not open that folder: ' + e.message; }
+  showSave();
+};
+const useFolder = () => $('saveMode').value === 'folder' && canPick;
+async function existingNames(){
+  const names = new Set();
+  if (useFolder() && outDir) for await (const [name] of outDir.entries()) names.add(name);
+  return names;
+}
+let downloadChain = Promise.resolve();
+async function save(name, blob){
+  if (useFolder()) {
+    const fh = await outDir.getFileHandle(name, { create: true });
+    const w = await fh.createWritable(); await w.write(blob); await w.close();
+    return;
+  }
+  downloadChain = downloadChain.then(async () => {
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
+    await sleep(400);
+  });
+  return downloadChain;
+}
+
+/* ---------- images ---------- */
+// Shopify serves resized copies when a link has width/height/crop; without them it serves the original upload.
+function originalUrl(raw){
+  try {
+    const u = new URL(raw);
+    if (u.hostname.includes('cdn.shopify.com') || u.pathname.includes('/cdn/shop/')) ['width', 'height', 'crop'].forEach(k => u.searchParams.delete(k));
+    return u.toString();
+  } catch (e) { return raw; }
+}
+// Downloads an image from its link, unchanged. A couple of retries for flaky hosts.
+async function download(url, name){
+  let last;
+  for (let t = 0; t < 3; t++) {
+    if (t) await sleep(3000 * t);
+    let res;
+    try { res = await fetch(url, { credentials: 'omit' }); }
+    catch (e) { last = new Error('the browser could not download it. The link may be wrong, or the site that hosts it does not let other web pages download its images (CORS).'); continue; }
+    if (res.ok) { const b = await res.blob(); return new File([b], name, { type: b.type }); }
+    last = new Error('downloading it failed (HTTP ' + res.status + ').');
+    if (res.status !== 429 && res.status < 500) break;
+  }
+  throw last;
+}
+function sniff(b, fallback){
+  return b[0] === 0x89 && b[1] === 0x50 ? 'image/png' : b[0] === 0xff && b[1] === 0xd8 ? 'image/jpeg'
+    : b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45 ? 'image/webp' : b[0] === 0x47 && b[1] === 0x49 ? 'image/gif'
+    : b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70 ? 'image/avif' : fallback;
+}
+const EXT = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
+// The image goes to UnoRouter byte for byte as downloaded, never converted. Only the label is fixed:
+// the upload gets the real file type and a matching extension.
+async function uploadable(file){
+  const type = sniff(new Uint8Array(await file.slice(0, 16).arrayBuffer()), file.type);
+  if (!EXT[type]) throw new Error('it is ' + (type ? type.replace('image/', '').toUpperCase() : 'not a recognised image') + ', and UnoRouter only accepts PNG, JPEG or WebP. It was not converted.');
+  const name = file.name.replace(/\.(png|jpe?g|webp|gif|avif)$/i, '') + EXT[type];
+  return file.type === type && file.name === name ? file : new File([file], name, { type });
+}
+async function inspect(blob){
+  const b = new Uint8Array(await blob.slice(0, 32).arrayBuffer());
+  const type = sniff(b, blob.type || 'image/png');
+  if (type === 'image/png') { const v = new DataView(b.buffer); return { type, W: v.getUint32(16), H: v.getUint32(20) }; }
+  const bmp = await createImageBitmap(blob); const out = { type, W: bmp.width, H: bmp.height }; bmp.close(); return out;
+}
+// Scale to exactly W×H, keeping the shape: trims the few extra pixels from the edges instead of stretching.
+async function fitTo(blob, from, W, H, type){
+  const s = Math.max(W / from.W, H / from.H), sw = W / s, sh = H / s;
+  const bmp = await createImageBitmap(blob, Math.round((from.W - sw) / 2), Math.round((from.H - sh) / 2), Math.round(sw), Math.round(sh),
+    { resizeWidth: W, resizeHeight: H, resizeQuality: 'high' });
+  const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(bmp, 0, 0); bmp.close();
+  const out = await new Promise((ok, bad) => c.toBlob(b => b ? ok(b) : bad(new Error('Could not resize the image.')), type, 0.95));
+  c.width = c.height = 0;
+  return out;
+}
+// One download per quilt, shared by its mockups and released when the last one finishes.
+function sourceFor(q){
+  if (!q.cache) q.cache = (async () => {
+    const file = await download(originalUrl(q.url), q.fileBase);
+    const up = await uploadable(file);
+    try { const bmp = await createImageBitmap(file); q.orig = { W: bmp.width, H: bmp.height }; bmp.close(); } catch (e) {}
+    return up;
+  })();
+  return q.cache;
+}
+function doneWith(q){ if (--q.left <= 0) q.cache = null; }
+
+/* ---------- UnoRouter ---------- */
+class ApiError extends Error { constructor(msg, retry){ super(msg); this.retry = retry; } }
+async function makeMockup(job, images, s, signal){
+  const fields = Object.assign({}, s.extra, { model: s.model, prompt: job.prompt, n: '1', size: s.plan.req.W + 'x' + s.plan.req.H, quality: s.quality, output_format: s.format });
+  const body = new FormData();
+  Object.entries(fields).forEach(([k, v]) => body.append(k, typeof v === 'string' ? v : JSON.stringify(v)));
+  const field = s.imageField === 'auto' ? (images.length > 1 ? 'image[]' : 'image') : s.imageField;
+  images.forEach(f => body.append(field, f, f.name));
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), s.timeout);
+  const onStop = () => ctl.abort(); signal.addEventListener('abort', onStop);
+  let res, text;
+  try {
+    res = await fetch(s.base + '/images/edits', { method: 'POST', signal: ctl.signal, headers: { Authorization: 'Bearer ' + s.key }, body });
+    text = await res.text();
+  } catch (e) {
+    if (signal.aborted) throw new ApiError('Stopped.', false);
+    throw new ApiError(ctl.signal.aborted ? 'No reply within ' + Math.round(s.timeout / 60000) + ' minutes.' : 'Could not reach UnoRouter (' + e.message + ').', true);
+  } finally { clearTimeout(timer); signal.removeEventListener('abort', onStop); }
+  let data = {}; try { data = JSON.parse(text); } catch (e) {}
+  if (!res.ok) {
+    const err = data.error, msg = (err && (err.message || (typeof err === 'string' ? err : JSON.stringify(err)))) || data.message || text.slice(0, 300);
+    const e = new ApiError('UnoRouter: ' + msg + ' (HTTP ' + res.status + ')', res.status === 429 || res.status >= 500 || res.status === 408);
+    e.wait = +res.headers.get('Retry-After') || 0;
+    throw e;
+  }
+  const d = Array.isArray(data.data) && data.data[0];
+  if (!d) throw new ApiError('UnoRouter replied without an image: ' + text.slice(0, 200), true);
+  if (d.b64_json) return (await fetch('data:image/' + (data.output_format || s.format) + ';base64,' + d.b64_json)).blob();
+  if (d.url) {
+    const r = await fetch(d.url).catch(() => null);
+    if (!r || !r.ok) throw new ApiError('UnoRouter returned an image link the browser could not download: ' + d.url, true);
+    return r.blob();
+  }
+  throw new ApiError('UnoRouter replied without image data.', true);
+}
+
+/* ---------- running ---------- */
+let stopCtl = null;
+function readSettings(){
+  const key = $('apiKey').value.trim(); if (!key) throw new Error('Add your UnoRouter API key first.');
+  const model = $('model').value.trim(); if (!model) throw new Error('Add the model id.');
+  let extra; try { extra = JSON.parse($('extra').value.trim() || '{}'); } catch (e) { throw new Error('Extra request fields are not valid JSON: ' + e.message); }
+  if (!extra || typeof extra !== 'object' || Array.isArray(extra)) extra = {};
+  delete extra.response_format; delete extra.n;
+  const tpl = {}; TYPES.forEach(t => tpl[t.key] = $(t.tpl).value.trim() || DEFAULT_TPL[t.key]);
+  return { key, model, extra, tpl, plan: planSize($('outSize').value), bedRef: $('bedRef').value.trim(), base: $('base').value.trim().replace(/\/+$/, ''),
+    quality: $('quality').value, format: $('format').value, imageField: $('imageField').value,
+    parallel: Math.max(1, Math.min(100, +$('parallel').value || 1)), sizeRetries: Math.max(0, Math.min(5, +$('sizeRetries').value || 0)),
+    wrongSize: $('wrongSize').value, timeout: Math.max(2, +$('timeout').value || 15) * 60000 };
+}
+$('start').onclick = () => runBatch(false);
+$('testOne').onclick = () => runBatch(true);
+$('stop').onclick = () => { stopping = true; if (stopCtl) stopCtl.abort(); setStatus('Stopping…'); };
+$('format').addEventListener('change', () => { if (!running) { buildJobs(); renderRows(); } });
+window.addEventListener('beforeunload', e => { if (running) { e.preventDefault(); e.returnValue = ''; } });
+const LOCK = ['start', 'testOne', 'pickOut', 'saveMode', 'clear', 'format', 'loadList', 'doFolded', 'doBed', 'doOutdoor'];
+
+async function runBatch(onlyOne){
+  if (running) return;
+  let s;
+  try { s = readSettings(); } catch (e) { return setStatus(e.message, 'err'); }
+  if (!quilts.length) return setStatus('Add some quilts first: paste image links and click "Use this list", or choose a CSV.', 'err');
+  buildJobs();
+  if (!jobs.length) return setStatus('Tick at least one kind of mockup.', 'err');
+  try {
+    if (useFolder()) {
+      if (!outDir) { outDir = await window.showDirectoryPicker({ id: 'mockups-out', mode: 'readwrite' }); showSave(); }
+      if ((await outDir.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('The browser did not allow saving into that folder.');
+    }
+  } catch (e) { return setStatus(e.name === 'AbortError' ? 'Choose a folder to save the mockups in first.' : e.message, 'err'); }
+  renderRows();
+  running = true; stopping = false; stopCtl = new AbortController(); t0 = Date.now();
+  LOCK.forEach(id => $(id).disabled = true); $('stop').disabled = false;
+  try {
+    s.bedImage = null;
+    if (s.bedRef && jobs.some(j => j.type.key === 'bed')) {
+      setStatus('Downloading the bed reference photo…');
+      try { s.bedImage = await uploadable(await download(originalUrl(s.bedRef), 'bed-reference')); }
+      catch (e) { throw new Error('Could not download the bed reference photo: ' + e.message + ' Fix the link or empty the box.'); }
+    }
+    const existing = await existingNames();
+    jobs.forEach(j => { if (existing.has(j.file)) { j.status = 'exists'; j.note = 'Skipped: ' + j.file + ' is already in the output folder.'; paint(j); } });
+    let todo = jobs.filter(j => j.status === 'waiting');
+    if (onlyOne && todo.length) { const q = todo[0].quilt; todo = todo.filter(j => j.quilt === q); jobs.filter(j => j.status === 'waiting' && j.quilt !== q).forEach(j => { j.status = 'stopped'; paint(j); }); }
+    if (!todo.length) { setStatus('Nothing to do: every mockup is already in the output folder.', 'ok'); return; }
+    quilts.forEach(q => { q.left = 0; q.cache = null; }); todo.forEach(j => j.quilt.left++);
+    const width = Math.min(s.parallel, todo.length);
+    setStatus('Making ' + todo.length + ' of ' + jobs.length + ' mockups, ' + width + ' at a time. Keep this tab open.');
+    const tick = setInterval(counts, 15000);
+    let next = 0;
+    const worker = async () => { while (!stopping && next < todo.length) await runJob(todo[next++], s); };
+    await Promise.all(Array.from({ length: width }, (_, k) => sleep(k * 100).then(worker)));
+    clearInterval(tick);
+    quilts.forEach(q => q.cache = null);
+    jobs.filter(j => j.status === 'waiting').forEach(j => { j.status = 'stopped'; paint(j); });
+    const report = await saveReport(s).catch(e => 'Could not save the report: ' + e.message);
+    const c = st => jobs.filter(j => j.status === st).length;
+    let msg = (stopping ? 'Stopped. ' : 'Finished. ') + (c('done') + c('flagged')) + ' mockups saved' + (c('flagged') ? ' (' + c('flagged') + ' came back at the wrong size)' : '') +
+      (c('failed') ? ', ' + c('failed') + ' failed' : '') + '. ' + report;
+    if (onlyOne) msg += ' Check these mockups (and the prompts in the table) before starting the batch.';
+    setStatus(msg, c('failed') || c('flagged') ? 'err' : 'ok');
+  } catch (e) {
+    setStatus(e.message, 'err');
+  } finally {
+    running = false; counts();
+    LOCK.forEach(id => $(id).disabled = false); $('stop').disabled = true;
+  }
+}
+async function runJob(job, s){
+  const q = job.quilt;
+  job.status = 'dl'; job.note = ''; paint(job);
+  let src;
+  try { src = await sourceFor(q); }
+  catch (e) { job.status = 'failed'; job.note = 'Could not download the quilt photo: ' + e.message; paint(job); doneWith(q); return; }
+  job.prompt = buildPrompt(job, s);
+  const images = job.type.key === 'bed' && s.bedImage ? [src, s.bedImage] : [src];
+  let blob = null, info = null, errTries = 0, sizeTries = 0;
+  const req = s.plan.req, final = s.plan.final;
+  while (!stopping) {
+    job.attempts++; job.status = 'gen'; paint(job);
+    try {
+      blob = await makeMockup(job, images, s, stopCtl.signal);
+      info = await inspect(blob);
+      job.got = info;
+      if (info.W === req.W && info.H === req.H) break;
+      if (sizeTries < s.sizeRetries) { sizeTries++; job.status = 'retry'; job.note = 'Got ' + info.W + '×' + info.H + ' instead; asking again (' + sizeTries + ' of ' + s.sizeRetries + ').'; paint(job); blob = null; continue; }
+      break;
+    } catch (e) {
+      if (stopping) { job.status = 'waiting'; job.note = ''; paint(job); doneWith(q); return; }
+      if (e.retry !== false && errTries < 4) {
+        errTries++;
+        const wait = Math.min(120, e.wait || 15 * errTries) * 1000 + Math.random() * 5000;
+        job.status = 'retry'; job.note = e.message + ' Trying again in ' + Math.round(wait / 1000) + 's.'; paint(job);
+        await sleep(wait); continue;
+      }
+      job.status = 'failed'; job.note = e.message; paint(job); doneWith(q); return;
+    }
+  }
+  doneWith(q);
+  if (!blob) { job.status = 'waiting'; job.note = ''; paint(job); return; }
+  const wrong = info.W !== req.W || info.H !== req.H;
+  if (wrong && s.wrongSize === 'skip') { job.status = 'failed'; job.note = 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + req.W + '×' + req.H + '; not saved.'; paint(job); return; }
+  try {
+    job.status = 'save'; paint(job);
+    const outType = 'image/' + s.format;
+    const needFit = (info.W !== final.W || info.H !== final.H) && !(wrong && s.wrongSize === 'flag');
+    // The file must really be the chosen type (a .jpg holding PNG data confuses Shopify and image viewers).
+    const convert = info.type !== outType;
+    if (needFit) blob = await fitTo(blob, info, final.W, final.H, outType);
+    else if (convert) blob = await fitTo(blob, info, info.W, info.H, outType);
+    else if (blob.type !== info.type) blob = new Blob([blob], { type: info.type });
+    await save(job.file, blob);
+    const conv = convert ? ' (UnoRouter sent ' + info.type.replace('image/', '').toUpperCase() + '; converted)' : '';
+    job.status = wrong ? 'flagged' : 'done';
+    job.note = wrong ? 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + req.W + '×' + req.H + (needFit ? '; resized to ' + final.W + '×' + final.H + '.' : '; saved as returned.') + conv
+                     : 'Saved ' + job.file + (needFit ? ' (scaled from ' + info.W + '×' + info.H + ')' : '') + conv + (job.attempts > 1 ? ', ' + job.attempts + ' tries' : '') + '. Scene: ' + q.scene;
+  } catch (e) { job.status = 'failed'; job.note = 'Could not save: ' + e.message; }
+  blob = null; paint(job);
+}
+async function saveReport(s){
+  if (!jobs.some(j => ['done', 'flagged', 'failed'].includes(j.status))) return '';
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const wh = x => x ? x.W + 'x' + x.H : '';
+  const lines = [['#', 'product code', 'product title', 'mockup', 'quilt image link', 'mockup file', 'status', 'quilt photo size', 'size asked from API', 'size returned', 'tries', 'scene', 'note', 'prompt'].join(',')];
+  jobs.forEach(j => lines.push([j.qn, q(j.quilt.code), q(j.quilt.title), j.type.label, q(j.quilt.url), q(j.file), j.status, wh(j.quilt.orig), j.attempts ? wh(s.plan.req) : '', wh(j.got), j.attempts, q(j.quilt.scene), q(j.note), q(j.prompt)].join(',')));
+  const d = new Date(), p2 = x => String(x).padStart(2, '0');
+  const name = '_mockup-report_' + d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + p2(d.getHours()) + '-' + p2(d.getMinutes()) + '.csv';
+  await save(name, new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' }));
+  return 'Report saved as ' + name + '.';
+}
+</script>
+</body>
+</html>
