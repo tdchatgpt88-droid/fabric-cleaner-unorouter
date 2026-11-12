@@ -339,10 +339,18 @@ function addCsv(text, fileName){
     let name = (nameCol >= 0 && safeName(r[nameCol] || '')) || nameFromUrl(url);
     if (names.has(name)) { const m = name.match(/^(.*?)(\.(?:png|jpe?g|webp|gif|avif))?$/i); name = m[1] + '_row' + (k + first) + (m[2] || ''); }
     names.add(name);
-    list.push({ name, url, getFile: () => download(url, name) });
+    list.push({ name, url, getFile: () => download(originalUrl(url), name) });
   });
   addPhotos(list, fileName, false);
   if (skipped) $('inStatus').textContent += ' ' + skipped + ' row' + (skipped === 1 ? ' has' : 's have') + ' no link and ' + (skipped === 1 ? 'was' : 'were') + ' left out.';
+}
+// Shopify serves resized copies when a link has width/height/crop; without them it serves the original upload.
+function originalUrl(raw){
+  try {
+    const u = new URL(raw);
+    if (u.hostname.includes('cdn.shopify.com') || u.pathname.includes('/cdn/shop/')) ['width', 'height', 'crop'].forEach(k => u.searchParams.delete(k));
+    return u.toString();
+  } catch (e) { return raw; }
 }
 // Downloads the photo from its link, unchanged. A couple of retries for flaky hosts.
 async function download(url, name){
