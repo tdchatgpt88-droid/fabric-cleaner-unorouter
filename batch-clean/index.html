@@ -521,6 +521,7 @@ async function clean(job, upload, settings, signal){
     const err = data.error, msg = (err && (err.message || (typeof err === 'string' ? err : JSON.stringify(err)))) || data.message || text.slice(0, 300);
     const e = new ApiError('UnoRouter: ' + msg + ' (HTTP ' + res.status + ')', res.status === 429 || res.status >= 500 || res.status === 408);
     e.wait = +res.headers.get('Retry-After') || 0;
+    e.status = res.status; e.sentComplexity = fields.complexity || '';
     throw e;
   }
   const d = Array.isArray(data.data) && data.data[0];
@@ -587,6 +588,7 @@ async function runBatch(onlyOne){
     const c = s => jobs.filter(j => j.status === s).length;
     let msg = (stopping ? 'Stopped. ' : 'Finished. ') + (c('done') + c('flagged')) + ' saved' + (c('flagged') ? ' (' + c('flagged') + ' came back at the wrong size)' : '') +
       (jobs.some(j => j.lowQuality) ? ' (WARNING: ' + jobs.filter(j => j.lowQuality).length + ' at a lower quality than "' + settings.quality + '"; see the notes)' : '') +
+      (settings.complexityAsked ? ' (This model does not accept Planning effort "' + settings.complexityAsked + '", so it was ' + (settings.complexity ? 'sent as "' + settings.complexity + '"' : 'left out (model default)') + ')' : '') +
       (c('failed') ? ', ' + c('failed') + ' failed' : '') + '. ' + report;
     const tj = todo[0];
     if (onlyOne && tj.got) msg += ' Test: asked UnoRouter for ' + tj.req.W + '×' + tj.req.H + ', got ' + tj.got.W + '×' + tj.got.H + (tj.got.W === tj.req.W && tj.got.H === tj.req.H ? ' (correct)' : '') + '.';
@@ -623,6 +625,12 @@ async function runJob(job, s){
       break;
     } catch (e) {
       if (stopping) { job.status = 'waiting'; job.note = ''; paint(job); return; }
+      if (e.status === 400 && e.sentComplexity && /complexity/i.test(e.message)) {
+        // This model rejects that Planning effort: step down one level for the whole run (high → medium → low → not sent).
+        if (s.complexity === e.sentComplexity) { if (!s.complexityAsked) s.complexityAsked = s.complexity; s.complexity = { high: 'medium', medium: 'low' }[s.complexity] || ''; }
+        job.status = 'retry'; job.note = 'This model does not accept Planning effort "' + e.sentComplexity + '"; trying ' + (s.complexity ? '"' + s.complexity + '"' : 'without it') + '.'; paint(job);
+        continue;
+      }
       if (e.retry !== false && errTries < 4) {
         errTries++;
         const wait = Math.min(120, e.wait || 15 * errTries) * 1000 + Math.random() * 5000;
