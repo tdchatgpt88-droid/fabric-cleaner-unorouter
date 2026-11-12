@@ -88,6 +88,9 @@ code{font-size:.9em}
           <div><label for="format">File type</label>
             <select id="format"><option value="jpeg">JPEG</option><option value="png">PNG</option><option value="webp">WebP</option></select></div>
         </div>
+        <label for="complexity">Planning effort</label>
+        <select id="complexity"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="">Don't send (model default)</option></select>
+        <div class="hint">Planning effort is OpenAI's <code>complexity</code> field: how much the model plans the picture before drawing it, separate from Quality. High is the most. Without it the model uses its own default.</div>
         <label for="outSize">Mockup size (width x height)</label>
         <input type="text" id="outSize" class="mono" spellcheck="false" placeholder="1122x1402">
         <div class="hint" id="sizeHint"></div>
@@ -223,7 +226,7 @@ const TYPES = [
   { key: 'bed', label: 'Bed', box: 'doBed', tpl: 'tplBed', suffix: 'bed' },
   { key: 'outdoor', label: 'Hanging outdoor', box: 'doOutdoor', tpl: 'tplOutdoor', suffix: 'outdoor' }
 ];
-const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', format: 'jpeg', outSize: '1122x1402',
+const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', complexity: 'high', format: 'jpeg', outSize: '1122x1402',
   parallel: '50', sizeRetries: '0', wrongSize: 'resize', extra: '{}', imageField: 'auto', timeout: '15', saveMode: 'folder', bedRef: 'https://cdn.shopify.com/s/files/1/0964/6352/0108/files/2ed30808432372bca5f3c4caf810b4b8_3.jpg?v=1794489648' };
 
 /* ---------- settings ---------- */
@@ -560,7 +563,7 @@ function doneWith(q){ if (--q.left <= 0) q.cache = null; }
 /* ---------- UnoRouter ---------- */
 class ApiError extends Error { constructor(msg, retry){ super(msg); this.retry = retry; } }
 async function makeMockup(job, images, s, signal){
-  const fields = Object.assign({}, s.extra, { model: s.model, prompt: job.prompt, n: '1', size: s.plan.req.W + 'x' + s.plan.req.H, quality: s.quality, output_format: s.format });
+  const fields = Object.assign({}, s.extra, s.complexity ? { complexity: s.complexity } : {}, { model: s.model, prompt: job.prompt, n: '1', size: s.plan.req.W + 'x' + s.plan.req.H, quality: s.quality, output_format: s.format });
   const body = new FormData();
   Object.entries(fields).forEach(([k, v]) => body.append(k, typeof v === 'string' ? v : JSON.stringify(v)));
   const field = s.imageField === 'auto' ? (images.length > 1 ? 'image[]' : 'image') : s.imageField;
@@ -603,7 +606,7 @@ function readSettings(){
   delete extra.response_format; delete extra.n;
   const tpl = {}; TYPES.forEach(t => tpl[t.key] = $(t.tpl).value.trim() || DEFAULT_TPL[t.key]);
   return { key, model, extra, tpl, plan: planSize($('outSize').value), bedRef: $('bedRef').value.trim(), base: $('base').value.trim().replace(/\/+$/, ''),
-    quality: $('quality').value, format: $('format').value, imageField: $('imageField').value,
+    quality: $('quality').value, complexity: $('complexity').value, format: $('format').value, imageField: $('imageField').value,
     parallel: Math.max(1, Math.min(100, +$('parallel').value || 1)), sizeRetries: Math.max(0, Math.min(5, +$('sizeRetries').value || 0)),
     wrongSize: $('wrongSize').value, timeout: Math.max(2, +$('timeout').value || 15) * 60000 };
 }

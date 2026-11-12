@@ -82,6 +82,9 @@ code{font-size:.9em}
           <div><label for="format">File type</label>
             <select id="format"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select></div>
         </div>
+        <label for="complexity">Planning effort</label>
+        <select id="complexity"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="">Don't send (model default)</option></select>
+        <div class="hint">Planning effort is OpenAI's <code>complexity</code> field: how much the model plans the picture before drawing it, separate from Quality. High is the most. Without it the model uses its own default.</div>
         <label for="fallback">Size for prompts that don't state one</label>
         <input type="text" id="fallback" class="mono" spellcheck="false" placeholder="e.g. 1122x1402 (empty = skip those prompts)">
         <div class="row">
@@ -165,7 +168,7 @@ A floral border print (no size given: uses the default size)
 
 <script>
 const $ = id => document.getElementById(id);
-const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', format: 'png',
+const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', complexity: 'high', format: 'png',
   fallback: '1122x1402', parallel: '50', sizeRetries: '0', wrongSize: 'resize', extra: '{}', timeout: '15', split: 'auto', saveMode: 'folder' };
 
 /* ---------- settings ---------- */
@@ -427,7 +430,7 @@ async function save(name, blob){
 class ApiError extends Error { constructor(msg, retry){ super(msg); this.retry = retry; } }
 async function generate(job, settings, signal){
   // n: 1 = exactly one image per call. size must be an explicit WIDTHxHEIGHT; the API drops unknown fields.
-  const body = Object.assign({}, settings.extra, { model: settings.model, prompt: job.prompt, n: 1, size: job.req.W + 'x' + job.req.H, quality: settings.quality, output_format: settings.format });
+  const body = Object.assign({}, settings.extra, settings.complexity ? { complexity: settings.complexity } : {}, { model: settings.model, prompt: job.prompt, n: 1, size: job.req.W + 'x' + job.req.H, quality: settings.quality, output_format: settings.format });
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), settings.timeout);
   const onStop = () => ctl.abort(); signal.addEventListener('abort', onStop);
   let res, text;
@@ -483,7 +486,7 @@ function readSettings(){
   let extra; try { extra = JSON.parse($('extra').value.trim() || '{}'); } catch (e) { throw new Error('Extra request fields are not valid JSON: ' + e.message); }
   if (!extra || typeof extra !== 'object' || Array.isArray(extra)) extra = {};
   delete extra.response_format; delete extra.n; // gpt-image models reject response_format; always one image per prompt
-  return { key, model, extra, base: $('base').value.trim().replace(/\/+$/, ''), quality: $('quality').value, format: $('format').value,
+  return { key, model, extra, base: $('base').value.trim().replace(/\/+$/, ''), quality: $('quality').value, complexity: $('complexity').value, format: $('format').value,
     parallel: Math.max(1, Math.min(100, +$('parallel').value || 1)), sizeRetries: Math.max(0, Math.min(5, +$('sizeRetries').value || 0)),
     wrongSize: $('wrongSize').value, timeout: Math.max(2, +$('timeout').value || 15) * 60000 };
 }

@@ -111,10 +111,12 @@ code{font-size:.9em}
           </select></div>
       </div>
       <div class="row">
+        <div><label for="complexity">Planning effort</label>
+          <select id="complexity"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="">Don't send (model default)</option></select></div>
         <div><label for="count">Versions</label>
           <select id="count"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
       </div>
-      <div class="hint">The size is worked out for each image with the same limits as gpt-image-2.5-sunburst: up to 3840px on the long side and about 8.3 megapixels in total (e.g. 2880 × 2880 for a square), keeping the photo's shape. It's sent as the <code>size</code> field (e.g. <code>"size": "2880x2880"</code>) and also written into the instructions. Each version is billed.</div>
+      <div class="hint">The size is worked out for each image with the same limits as gpt-image-2.5-sunburst: up to 3840px on the long side and about 8.3 megapixels in total (e.g. 2880 × 2880 for a square), keeping the photo's shape. It's sent as the <code>size</code> field (e.g. <code>"size": "2880x2880"</code>) and also written into the instructions. Each version is billed. Planning effort is OpenAI's <code>complexity</code> field (how much the model plans the picture before drawing it, separate from Quality); it isn't sent on the chat endpoint.</div>
       <label for="extra">Extra request fields (JSON)</label>
       <textarea id="extra" spellcheck="false" style="min-height:70px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px"></textarea>
       <div class="hint">Added to every request body, and can override the fields above, e.g. <code>{"output_format": "png"}</code>.</div>
@@ -171,10 +173,10 @@ function store(k, v){ try{ localStorage.setItem(NS + k, v); }catch(e){} }
 function load(k){ try{ return localStorage.getItem(NS + k); }catch(e){ return null; } }
 function forget(k){ try{ localStorage.removeItem(NS + k); }catch(e){} }
 $('base').value = load('base') || DEFAULT_BASE;
-$('model').value = DEFAULT_MODEL; $('quality').value = 'max';
+$('model').value = DEFAULT_MODEL; $('quality').value = 'max'; $('complexity').value = 'high';
 $('extra').value = load('extra') || DEFAULT_EXTRA;
 $('prompt').value = load('prompt') || DEFAULT_PROMPT;
-['base', 'apiMode', 'model', 'quality', 'sizeMode', 'count', 'extra', 'prompt'].forEach(id => {
+['base', 'apiMode', 'model', 'quality', 'complexity', 'sizeMode', 'count', 'extra', 'prompt'].forEach(id => {
   const v = load(id); if (v !== null && !['base', 'extra', 'prompt'].includes(id)) $(id).value = v;
   $(id).addEventListener('change', () => store(id, $(id).value));
 });
@@ -419,7 +421,7 @@ async function callOnce(url, key, body){
 }
 async function processJob({ job, file, src, img }){
   const key = $('apiKey').value.trim(), model = $('model').value.trim(), base = $('base').value.trim().replace(/\/+$/, '');
-  const apiMode = $('apiMode').value, quality = $('quality').value;
+  const apiMode = $('apiMode').value, quality = $('quality').value, complexity = $('complexity').value;
   if (!key) { job.status('Add your API key first, then drop the image again.', 'err'); return; }
   if (!model) { job.status('Choose a model first, then drop the image again.', 'err'); return; }
   let extra = {};
@@ -440,12 +442,12 @@ async function processJob({ job, file, src, img }){
       url = base + '/images/edits';
       const upload = file.size <= MAX_UPLOAD_BYTES ? file : await (await fetch(await toDataUrl(file, img))).blob();
       body = new FormData();
-      const fields = Object.assign({ model, prompt, n: String(n) }, sizeStr ? { size: sizeStr } : {}, quality ? { quality } : {}, extra);
+      const fields = Object.assign({ model, prompt, n: String(n) }, sizeStr ? { size: sizeStr } : {}, quality ? { quality } : {}, complexity ? { complexity } : {}, extra);
       Object.entries(fields).forEach(([k, v]) => body.append(k, typeof v === 'string' ? v : JSON.stringify(v)));
       body.append('image', upload, file.name || 'fabric.png');
     } else if (apiMode === 'generations') {
       url = base + '/images/generations';
-      body = Object.assign({ model, prompt, n, image: await toDataUrl(file, img) }, sizeStr ? { size: sizeStr } : {}, quality ? { quality } : {}, extra);
+      body = Object.assign({ model, prompt, n, image: await toDataUrl(file, img) }, sizeStr ? { size: sizeStr } : {}, quality ? { quality } : {}, complexity ? { complexity } : {}, extra);
     } else {
       url = base + '/chat/completions'; calls = n;
       body = Object.assign({
