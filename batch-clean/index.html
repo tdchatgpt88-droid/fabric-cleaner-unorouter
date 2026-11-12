@@ -91,7 +91,7 @@ code{font-size:.9em}
         <label for="sizeMode">Output size</label>
         <select id="sizeMode">
           <option value="max">Highest possible, same shape (up to 4K)</option>
-          <option value="exact">Same size as the original photo</option>
+          <option value="exact">Closest size to the original photo</option>
           <option value="match">Original width, capped at 4K</option>
         </select>
         <div class="hint" id="sizeHint"></div>
@@ -104,7 +104,6 @@ code{font-size:.9em}
         <div class="hint">Each photo makes one cleaned image. "Ask again" makes an extra (billed) image only when UnoRouter returns the wrong size; 0 means never.</div>
         <label for="wrongSize">If UnoRouter returns the wrong size</label>
         <select id="wrongSize">
-          <option value="resize">Resize it to the size asked for, and flag it</option>
           <option value="flag">Save it as returned, and flag it</option>
           <option value="skip">Don't save it (counts as failed)</option>
         </select>
@@ -191,7 +190,7 @@ ENHANCE:
 
 Do not change the subject matter, add new objects, characters or text, change the art style, introduce new colours or recolour anything, and do not crop or change the framing. The result should be perfectly flat and smooth, with crisp, sharp, high-definition detail in the original style and colours.`;
 const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', complexity: 'high', format: 'png', sizeMode: 'max',
-  parallel: '50', sizeRetries: '0', wrongSize: 'resize', extra: '{}', timeout: '15', saveMode: 'folder' };
+  parallel: '50', sizeRetries: '0', wrongSize: 'flag', extra: '{}', timeout: '15', saveMode: 'folder' };
 
 /* ---------- settings ---------- */
 const NS = 'gptstudio.uno.';
@@ -206,6 +205,7 @@ if (/^openai\/gpt-image/i.test($('model').value)) $('model').value = $('model').
 $('prompt').value = load('prompt') || DEFAULT_PROMPT; // same key as the one-photo cleaner
 $('prompt').addEventListener('change', () => store('prompt', $('prompt').value));
 $('resetPrompt').onclick = () => { $('prompt').value = DEFAULT_PROMPT; forget('prompt'); };
+if (!$('wrongSize').value) $('wrongSize').value = 'flag'; // the old "resize" choice was removed (Nov 13)
 const savedKey = load('apiKey');
 if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
 function saveKey(){ $('rememberKey').checked ? store('apiKey', $('apiKey').value.trim()) : forget('apiKey'); }
@@ -213,7 +213,7 @@ $('apiKey').addEventListener('change', saveKey);
 $('rememberKey').addEventListener('change', saveKey);
 const SIZE_HINTS = {
   max: 'Each result is as large as the model allows with the photo\'s shape: up to 3840px a side and 8.3 megapixels (e.g. 2880 × 2880 for a square photo).',
-  exact: 'Each result has exactly the same pixel size as its photo. Sizes the API can\'t make directly are generated slightly larger with the same shape and scaled down. Photos above 4K / 8.3 MP are capped.',
+  exact: 'Each result is the photo\'s pixel size when the API can make it; otherwise the nearest size it accepts (sides are multiples of 16), slightly larger, same shape. Results are never resized. Photos above 4K / 8.3 MP are capped.',
   match: 'Each result keeps the photo\'s width (and shape), capped at 3840px a side and 8.3 MP, rounded to what the API accepts.'
 };
 const showSizeHint = () => $('sizeHint').textContent = SIZE_HINTS[$('sizeMode').value];
@@ -256,7 +256,7 @@ function planSize(w, h, mode){
   if (isLegal(w, h)) return { req: { W: w, H: h }, final: { W: w, H: h } };
   const fits = w <= MAX_SIDE && h <= MAX_SIDE && w * h <= MAX_PX && w / h <= 3 && h / w <= 3;
   const cover = fits && coverSize({ W: w, H: h });
-  if (cover) return { req: cover, final: { W: w, H: h } };
+  if (cover) return { req: cover, final: cover };
   const s = fitSize(w, h, 'match');
   return { req: s, final: s, note: 'The photo is larger than the model can make, so the result is ' + s.W + '×' + s.H + '.' };
 }
@@ -501,7 +501,8 @@ async function fitTo(blob, from, W, H, type){
 class ApiError extends Error { constructor(msg, retry){ super(msg); this.retry = retry; } }
 async function clean(job, upload, settings, signal){
   const fields = Object.assign({}, settings.extra, settings.complexity ? { complexity: settings.complexity } : {}, { model: settings.model, prompt: settings.prompt + sizeText(job.req, job.orig.W, job.orig.H),
-    n: '1', size: job.req.W + 'x' + job.req.H, quality: settings.quality, output_format: settings.format });
+    n: '1', size: job.req.W + 'x' + job.req.H, quality: settings.quality, output_format: settings.format },
+    settings.format !== 'png' ? { output_compression: '100' } : {});
   const body = new FormData();
   Object.entries(fields).forEach(([k, v]) => body.append(k, typeof v === 'string' ? v : JSON.stringify(v)));
   body.append('image', upload, upload.name || 'fabric.png');
@@ -524,11 +525,13 @@ async function clean(job, upload, settings, signal){
   }
   const d = Array.isArray(data.data) && data.data[0];
   if (!d) throw new ApiError('UnoRouter replied without an image: ' + text.slice(0, 200), true);
-  if (d.b64_json) return (await fetch('data:image/' + (data.output_format || settings.format) + ';base64,' + d.b64_json)).blob();
+  // The reply says which quality (and how many tokens) were really used.
+  const tag = b => Object.assign(b, { api: { quality: data.quality || '', tokens: data.usage && data.usage.output_tokens } });
+  if (d.b64_json) return tag(await (await fetch('data:image/' + (data.output_format || settings.format) + ';base64,' + d.b64_json)).blob());
   if (d.url) {
     const r = await fetch(d.url).catch(() => null);
     if (!r || !r.ok) throw new ApiError('UnoRouter returned an image link the browser could not download: ' + d.url, true);
-    return r.blob();
+    return tag(await r.blob());
   }
   throw new ApiError('UnoRouter replied without image data.', true);
 }
@@ -583,10 +586,11 @@ async function runBatch(onlyOne){
     const report = await saveReport().catch(e => 'Could not save the report: ' + e.message);
     const c = s => jobs.filter(j => j.status === s).length;
     let msg = (stopping ? 'Stopped. ' : 'Finished. ') + (c('done') + c('flagged')) + ' saved' + (c('flagged') ? ' (' + c('flagged') + ' came back at the wrong size)' : '') +
+      (jobs.some(j => j.lowQuality) ? ' (WARNING: ' + jobs.filter(j => j.lowQuality).length + ' at a lower quality than "' + settings.quality + '"; see the notes)' : '') +
       (c('failed') ? ', ' + c('failed') + ' failed' : '') + '. ' + report;
     const tj = todo[0];
     if (onlyOne && tj.got) msg += ' Test: asked UnoRouter for ' + tj.req.W + '×' + tj.req.H + ', got ' + tj.got.W + '×' + tj.got.H + (tj.got.W === tj.req.W && tj.got.H === tj.req.H ? ' (correct)' : '') + '.';
-    setStatus(msg, c('failed') || c('flagged') ? 'err' : 'ok');
+    setStatus(msg, c('failed') || c('flagged') || jobs.some(j => j.lowQuality) ? 'err' : 'ok');
   } catch (e) {
     setStatus(e.message, 'err');
   } finally {
@@ -611,6 +615,7 @@ async function runJob(job, s){
     job.attempts++; job.status = 'gen'; paint(job);
     try {
       blob = await clean(job, upload, s, stopCtl.signal);
+      job.api = blob.api || {};
       info = await inspect(blob);
       job.got = info;
       if (info.W === job.req.W && info.H === job.req.H) break;
@@ -633,13 +638,16 @@ async function runJob(job, s){
   if (wrong && s.wrongSize === 'skip') { job.status = 'failed'; job.note = 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + job.req.W + '×' + job.req.H + '; not saved.'; paint(job); return; }
   try {
     job.status = 'save'; paint(job);
-    const needFit = (info.W !== job.final.W || info.H !== job.final.H) && !(wrong && s.wrongSize === 'flag');
+    const needFit = false; // never resized: saved at the size the API returned
     if (needFit) blob = await fitTo(blob, info, job.final.W, job.final.H, info.type);
     else if (blob.type !== info.type) blob = new Blob([blob], { type: info.type });
     await save(job.file, blob);
+    job.lowQuality = !!(job.api.quality && job.api.quality !== s.quality);
+    const qnote = job.api.quality ? (job.lowQuality ? ' WARNING: the API used quality "' + job.api.quality + '", not "' + s.quality + '".' : ' Quality ' + job.api.quality + ' confirmed.')
+      : ' (The reply did not say which quality was used.)';
     job.status = wrong ? 'flagged' : 'done';
-    job.note = wrong ? 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + job.req.W + '×' + job.req.H + (needFit ? '; resized to ' + job.final.W + '×' + job.final.H + '.' : '; saved as returned.')
-                     : 'Saved ' + job.file + (needFit ? ' (scaled from ' + info.W + '×' + info.H + ')' : '') + (job.attempts > 1 ? ', ' + job.attempts + ' tries' : '') + '.';
+    job.note = wrong ? 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + job.req.W + '×' + job.req.H + (needFit ? '; resized to ' + job.final.W + '×' + job.final.H + '.' : '; saved as returned.') + qnote
+                     : 'Saved ' + job.file + (needFit ? ' (scaled from ' + info.W + '×' + info.H + ')' : '') + (job.attempts > 1 ? ', ' + job.attempts + ' tries' : '') + '.' + qnote;
   } catch (e) { job.status = 'failed'; job.note = 'Could not save: ' + e.message; }
   blob = null; paint(job);
 }
@@ -647,8 +655,8 @@ async function saveReport(){
   if (!jobs.some(j => ['done', 'flagged', 'failed'].includes(j.status))) return '';
   const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const wh = s => s ? s.W + 'x' + s.H : '';
-  const lines = [['#', 'photo', 'link', 'result file', 'status', 'photo size', 'size asked from API', 'size returned', 'tries', 'note'].join(',')];
-  jobs.forEach(j => lines.push([j.n, q(j.name), q(j.photo.url), q(j.file), j.status, wh(j.orig), wh(j.req), wh(j.got), j.attempts, q(j.note)].join(',')));
+  const lines = [['#', 'photo', 'link', 'result file', 'status', 'photo size', 'size asked from API', 'size returned', 'tries', 'quality returned', 'output tokens', 'note'].join(',')];
+  jobs.forEach(j => lines.push([j.n, q(j.name), q(j.photo.url), q(j.file), j.status, wh(j.orig), wh(j.req), wh(j.got), j.attempts, j.api ? j.api.quality : '', j.api && j.api.tokens != null ? j.api.tokens : '', q(j.note)].join(',')));
   const d = new Date(), p2 = x => String(x).padStart(2, '0');
   const name = '_clean-report_' + d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + p2(d.getHours()) + '-' + p2(d.getMinutes()) + '.csv';
   await save(name, new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' }));

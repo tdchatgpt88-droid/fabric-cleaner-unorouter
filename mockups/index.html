@@ -102,7 +102,6 @@ code{font-size:.9em}
         </div>
         <label for="wrongSize">If UnoRouter returns the wrong size</label>
         <select id="wrongSize">
-          <option value="resize">Resize it to the mockup size, and flag it</option>
           <option value="flag">Save it as returned, and flag it</option>
           <option value="skip">Don't save it (counts as failed)</option>
         </select>
@@ -175,7 +174,7 @@ https://cdn.shopify.com/s/files/.../quilt.png"></textarea>
         <div class="row" style="margin-top:10px" id="folderRow"><button id="pickOut">Choose output folder…</button></div>
         <div class="status" id="saveStatus"></div>
         <div class="hint" id="saveHint"></div>
-        <div class="hint">Files are named like <code>BL9112390-folded.jpg</code> (1122 × 1402, 4:5), <code>-bed.jpg</code> and <code>-outdoor.jpg</code>, using the product code (or the title's code, or the link's file name). Mockups already in the output folder are skipped, so you can run the same list again to finish it or retry failures.</div>
+        <div class="hint">Files are named like <code>BL9112390-folded.jpg</code> (4:5, saved at the size the API returns, e.g. 1152 × 1440 for 1122x1402), <code>-bed.jpg</code> and <code>-outdoor.jpg</code>, using the product code (or the title's code, or the link's file name). Mockups already in the output folder are skipped, so you can run the same list again to finish it or retry failures.</div>
 
         <div class="row" style="margin-top:14px">
           <button id="testOne">Run the first quilt only</button>
@@ -227,7 +226,7 @@ const TYPES = [
   { key: 'outdoor', label: 'Hanging outdoor', box: 'doOutdoor', tpl: 'tplOutdoor', suffix: 'outdoor' }
 ];
 const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', complexity: 'high', format: 'jpeg', outSize: '1122x1402',
-  parallel: '50', sizeRetries: '0', wrongSize: 'resize', extra: '{}', imageField: 'auto', timeout: '15', saveMode: 'folder', bedRef: 'https://cdn.shopify.com/s/files/1/0964/6352/0108/files/2ed30808432372bca5f3c4caf810b4b8_3.jpg?v=1794489648' };
+  parallel: '50', sizeRetries: '0', wrongSize: 'flag', extra: '{}', imageField: 'auto', timeout: '15', saveMode: 'folder', bedRef: 'https://cdn.shopify.com/s/files/1/0964/6352/0108/files/2ed30808432372bca5f3c4caf810b4b8_3.jpg?v=1794489648' };
 
 /* ---------- settings ---------- */
 const NS = 'gptstudio.uno.';
@@ -253,6 +252,7 @@ $('resetPrompts').onclick = () => {
   $('rules').value = DEFAULT_RULES; forget('mock.rules');
   if (!running) { quilts.forEach(setScene); renderRows(); }
 };
+if (!$('wrongSize').value) $('wrongSize').value = 'flag'; // the old "resize" choice was removed (Nov 13)
 const savedKey = load('apiKey');
 if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
 function saveKey(){ $('rememberKey').checked ? store('apiKey', $('apiKey').value.trim()) : forget('apiKey'); }
@@ -290,13 +290,13 @@ function planSize(text){
   if (W * H < MIN_PX) { const g = Math.sqrt(MIN_PX / (W * H)); T = { W: Math.ceil(W * g), H: Math.ceil(H * g) }; }
   const cover = coverSize(T);
   if (!cover) throw new Error('No size the model can make fits ' + W + 'x' + H + '.');
-  return { req: cover, final: { W, H } };
+  return { req: cover, final: cover, want: { W, H } };
 }
 function showSizeHint(){
   try {
     const p = planSize($('outSize').value);
-    $('sizeHint').textContent = ratioText(p.final) + '. ' + (p.req.W === p.final.W && p.req.H === p.final.H ? 'UnoRouter makes this size directly.'
-      : 'Asks UnoRouter for ' + p.req.W + ' × ' + p.req.H + ' (the nearest size it accepts, same shape) and scales to ' + p.final.W + ' × ' + p.final.H + '.');
+    $('sizeHint').textContent = ratioText(p.final) + '. ' + (!p.want ? 'UnoRouter makes this size directly.'
+      : p.want.W + ' × ' + p.want.H + ' isn\'t a size UnoRouter accepts (sides must be multiples of 16), so it asks for ' + p.req.W + ' × ' + p.req.H + ' (the nearest one, same shape). Mockups are saved exactly as returned, never resized.');
     $('sizeHint').style.color = '';
   } catch (e) { $('sizeHint').textContent = e.message; $('sizeHint').style.color = 'var(--err)'; }
 }
@@ -544,7 +544,7 @@ async function fitTo(blob, from, W, H, type){
   const bmp = await createImageBitmap(blob, Math.round((from.W - sw) / 2), Math.round((from.H - sh) / 2), Math.round(sw), Math.round(sh),
     { resizeWidth: W, resizeHeight: H, resizeQuality: 'high' });
   const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(bmp, 0, 0); bmp.close();
-  const out = await new Promise((ok, bad) => c.toBlob(b => b ? ok(b) : bad(new Error('Could not resize the image.')), type, 0.95));
+  const out = await new Promise((ok, bad) => c.toBlob(b => b ? ok(b) : bad(new Error('Could not resize the image.')), type, 1));
   c.width = c.height = 0;
   return out;
 }
@@ -563,7 +563,7 @@ function doneWith(q){ if (--q.left <= 0) q.cache = null; }
 /* ---------- UnoRouter ---------- */
 class ApiError extends Error { constructor(msg, retry){ super(msg); this.retry = retry; } }
 async function makeMockup(job, images, s, signal){
-  const fields = Object.assign({}, s.extra, s.complexity ? { complexity: s.complexity } : {}, { model: s.model, prompt: job.prompt, n: '1', size: s.plan.req.W + 'x' + s.plan.req.H, quality: s.quality, output_format: s.format });
+  const fields = Object.assign({}, s.extra, s.complexity ? { complexity: s.complexity } : {}, { model: s.model, prompt: job.prompt, n: '1', size: s.plan.req.W + 'x' + s.plan.req.H, quality: s.quality, output_format: s.format }, s.format !== 'png' ? { output_compression: '100' } : {});
   const body = new FormData();
   Object.entries(fields).forEach(([k, v]) => body.append(k, typeof v === 'string' ? v : JSON.stringify(v)));
   const field = s.imageField === 'auto' ? (images.length > 1 ? 'image[]' : 'image') : s.imageField;
@@ -587,11 +587,13 @@ async function makeMockup(job, images, s, signal){
   }
   const d = Array.isArray(data.data) && data.data[0];
   if (!d) throw new ApiError('UnoRouter replied without an image: ' + text.slice(0, 200), true);
-  if (d.b64_json) return (await fetch('data:image/' + (data.output_format || s.format) + ';base64,' + d.b64_json)).blob();
+  // The reply says which quality (and how many tokens) were really used.
+  const tag = b => Object.assign(b, { api: { quality: data.quality || '', tokens: data.usage && data.usage.output_tokens } });
+  if (d.b64_json) return tag(await (await fetch('data:image/' + (data.output_format || s.format) + ';base64,' + d.b64_json)).blob());
   if (d.url) {
     const r = await fetch(d.url).catch(() => null);
     if (!r || !r.ok) throw new ApiError('UnoRouter returned an image link the browser could not download: ' + d.url, true);
-    return r.blob();
+    return tag(await r.blob());
   }
   throw new ApiError('UnoRouter replied without image data.', true);
 }
@@ -658,9 +660,10 @@ async function runBatch(onlyOne){
     const report = await saveReport(s).catch(e => 'Could not save the report: ' + e.message);
     const c = st => jobs.filter(j => j.status === st).length;
     let msg = (stopping ? 'Stopped. ' : 'Finished. ') + (c('done') + c('flagged')) + ' mockups saved' + (c('flagged') ? ' (' + c('flagged') + ' came back at the wrong size)' : '') +
+      (jobs.some(j => j.lowQuality) ? ' (WARNING: ' + jobs.filter(j => j.lowQuality).length + ' at a lower quality than "' + s.quality + '"; see the notes)' : '') +
       (c('failed') ? ', ' + c('failed') + ' failed' : '') + '. ' + report;
     if (onlyOne) msg += ' Check these mockups (and the prompts in the table) before starting the batch.';
-    setStatus(msg, c('failed') || c('flagged') ? 'err' : 'ok');
+    setStatus(msg, c('failed') || c('flagged') || jobs.some(j => j.lowQuality) ? 'err' : 'ok');
   } catch (e) {
     setStatus(e.message, 'err');
   } finally {
@@ -682,6 +685,7 @@ async function runJob(job, s){
     job.attempts++; job.status = 'gen'; paint(job);
     try {
       blob = await makeMockup(job, images, s, stopCtl.signal);
+      job.api = blob.api || {};
       info = await inspect(blob);
       job.got = info;
       if (info.W === req.W && info.H === req.H) break;
@@ -705,17 +709,20 @@ async function runJob(job, s){
   try {
     job.status = 'save'; paint(job);
     const outType = 'image/' + s.format;
-    const needFit = (info.W !== final.W || info.H !== final.H) && !(wrong && s.wrongSize === 'flag');
+    const needFit = false; // never resized: saved at the size the API returned
     // The file must really be the chosen type (a .jpg holding PNG data confuses Shopify and image viewers).
     const convert = info.type !== outType;
     if (needFit) blob = await fitTo(blob, info, final.W, final.H, outType);
     else if (convert) blob = await fitTo(blob, info, info.W, info.H, outType);
     else if (blob.type !== info.type) blob = new Blob([blob], { type: info.type });
     await save(job.file, blob);
+    job.lowQuality = !!(job.api.quality && job.api.quality !== s.quality);
+    const qnote = job.api.quality ? (job.lowQuality ? ' WARNING: the API used quality "' + job.api.quality + '", not "' + s.quality + '".' : ' Quality ' + job.api.quality + ' confirmed.')
+      : ' (The reply did not say which quality was used.)';
     const conv = convert ? ' (UnoRouter sent ' + info.type.replace('image/', '').toUpperCase() + '; converted)' : '';
     job.status = wrong ? 'flagged' : 'done';
-    job.note = wrong ? 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + req.W + '×' + req.H + (needFit ? '; resized to ' + final.W + '×' + final.H + '.' : '; saved as returned.') + conv
-                     : 'Saved ' + job.file + (needFit ? ' (scaled from ' + info.W + '×' + info.H + ')' : '') + conv + (job.attempts > 1 ? ', ' + job.attempts + ' tries' : '') + '. Scene: ' + q.scene;
+    job.note = wrong ? 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + req.W + '×' + req.H + (needFit ? '; resized to ' + final.W + '×' + final.H + '.' : '; saved as returned.') + conv + qnote
+                     : 'Saved ' + job.file + (needFit ? ' (scaled from ' + info.W + '×' + info.H + ')' : '') + conv + (job.attempts > 1 ? ', ' + job.attempts + ' tries' : '') + '.' + qnote + ' Scene: ' + q.scene;
   } catch (e) { job.status = 'failed'; job.note = 'Could not save: ' + e.message; }
   blob = null; paint(job);
 }
@@ -723,8 +730,8 @@ async function saveReport(s){
   if (!jobs.some(j => ['done', 'flagged', 'failed'].includes(j.status))) return '';
   const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const wh = x => x ? x.W + 'x' + x.H : '';
-  const lines = [['#', 'product code', 'product title', 'mockup', 'quilt image link', 'mockup file', 'status', 'quilt photo size', 'size asked from API', 'size returned', 'tries', 'scene', 'note', 'prompt'].join(',')];
-  jobs.forEach(j => lines.push([j.qn, q(j.quilt.code), q(j.quilt.title), j.type.label, q(j.quilt.url), q(j.file), j.status, wh(j.quilt.orig), j.attempts ? wh(s.plan.req) : '', wh(j.got), j.attempts, q(j.quilt.scene), q(j.note), q(j.prompt)].join(',')));
+  const lines = [['#', 'product code', 'product title', 'mockup', 'quilt image link', 'mockup file', 'status', 'quilt photo size', 'size asked from API', 'size returned', 'tries', 'quality returned', 'output tokens', 'scene', 'note', 'prompt'].join(',')];
+  jobs.forEach(j => lines.push([j.qn, q(j.quilt.code), q(j.quilt.title), j.type.label, q(j.quilt.url), q(j.file), j.status, wh(j.quilt.orig), j.attempts ? wh(s.plan.req) : '', wh(j.got), j.attempts, j.api ? j.api.quality : '', j.api && j.api.tokens != null ? j.api.tokens : '', q(j.quilt.scene), q(j.note), q(j.prompt)].join(',')));
   const d = new Date(), p2 = x => String(x).padStart(2, '0');
   const name = '_mockup-report_' + d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + p2(d.getHours()) + '-' + p2(d.getMinutes()) + '.csv';
   await save(name, new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' }));

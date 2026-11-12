@@ -96,7 +96,6 @@ code{font-size:.9em}
         <div class="hint">Each prompt makes one image. "Ask again" makes an extra (billed) image only when UnoRouter returns the wrong size; 0 means never.</div>
         <label for="wrongSize">If UnoRouter returns the wrong size</label>
         <select id="wrongSize">
-          <option value="resize">Resize it to the size asked for, and flag it</option>
           <option value="flag">Save it as returned, and flag it</option>
           <option value="skip">Don't save it (counts as failed)</option>
         </select>
@@ -169,7 +168,7 @@ A floral border print (no size given: uses the default size)
 <script>
 const $ = id => document.getElementById(id);
 const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', complexity: 'high', format: 'png',
-  fallback: '1122x1402', parallel: '50', sizeRetries: '0', wrongSize: 'resize', extra: '{}', timeout: '15', split: 'auto', saveMode: 'folder' };
+  fallback: '1122x1402', parallel: '50', sizeRetries: '0', wrongSize: 'flag', extra: '{}', timeout: '15', split: 'auto', saveMode: 'folder' };
 
 /* ---------- settings ---------- */
 const NS = 'gptstudio.uno.';
@@ -182,6 +181,7 @@ Object.keys(DEFAULTS).forEach(id => {
 });
 // UnoRouter doesn't recognise the "openai/" prefix; clean up a model id saved before this change.
 if (/^openai\/gpt-image/i.test($('model').value)) { $('model').value = $('model').value.replace(/^openai\//i, ''); store('batch2.model', $('model').value); }
+if (!$('wrongSize').value) $('wrongSize').value = 'flag'; // the old "resize" choice was removed (Nov 13)
 const savedKey = load('apiKey');
 if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
 function saveKey(){ $('rememberKey').checked ? store('apiKey', $('apiKey').value.trim()) : forget('apiKey'); }
@@ -226,8 +226,8 @@ function planSize(want){
   if (isLegal(want.W, want.H)) return { req: { W: want.W, H: want.H }, final: { W: want.W, H: want.H } };
   const fits = want.W <= MAX_SIDE && want.H <= MAX_SIDE && want.W * want.H <= MAX_PX && want.W / want.H <= 3 && want.H / want.W <= 3;
   const cover = fits && coverSize(want);
-  if (cover) return { req: cover, final: { W: want.W, H: want.H },
-    note: want.W + '×' + want.H + ' isn\'t a size the API accepts (sides must be multiples of 16), so it asks for ' + cover.W + '×' + cover.H + ' and scales it to exactly ' + want.W + '×' + want.H + '.' };
+  if (cover) return { req: cover, final: cover,
+    note: want.W + '×' + want.H + ' isn\'t a size the API accepts (sides must be multiples of 16), so it asks for ' + cover.W + '×' + cover.H + ' (the nearest one, same shape) and saves that, never resized.' };
   const s = legalSize(want.W, want.H);
   return { req: s, final: s, note: 'Asked for ' + want.W + '×' + want.H + '; the model allows at most 3840px a side and 8.3 MP, so this uses ' + s.W + '×' + s.H + '.' };
 }
@@ -430,7 +430,8 @@ async function save(name, blob){
 class ApiError extends Error { constructor(msg, retry){ super(msg); this.retry = retry; } }
 async function generate(job, settings, signal){
   // n: 1 = exactly one image per call. size must be an explicit WIDTHxHEIGHT; the API drops unknown fields.
-  const body = Object.assign({}, settings.extra, settings.complexity ? { complexity: settings.complexity } : {}, { model: settings.model, prompt: job.prompt, n: 1, size: job.req.W + 'x' + job.req.H, quality: settings.quality, output_format: settings.format });
+  const body = Object.assign({}, settings.extra, settings.complexity ? { complexity: settings.complexity } : {}, { model: settings.model, prompt: job.prompt, n: 1, size: job.req.W + 'x' + job.req.H, quality: settings.quality, output_format: settings.format },
+    settings.format !== 'png' ? { output_compression: 100 } : {});
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), settings.timeout);
   const onStop = () => ctl.abort(); signal.addEventListener('abort', onStop);
   let res, text;
@@ -452,11 +453,13 @@ async function generate(job, settings, signal){
   }
   const d = Array.isArray(data.data) && data.data[0];
   if (!d) throw new ApiError('UnoRouter replied without an image: ' + text.slice(0, 200), true);
-  if (d.b64_json) return (await fetch('data:image/' + (data.output_format || settings.format) + ';base64,' + d.b64_json)).blob();
+  // The reply says which quality (and how many tokens) were really used.
+  const tag = b => Object.assign(b, { api: { quality: data.quality || '', tokens: data.usage && data.usage.output_tokens } });
+  if (d.b64_json) return tag(await (await fetch('data:image/' + (data.output_format || settings.format) + ';base64,' + d.b64_json)).blob());
   if (d.url) {
     const r = await fetch(d.url).catch(() => null);
     if (!r || !r.ok) throw new ApiError('UnoRouter returned an image link the browser could not download: ' + d.url, true);
-    return r.blob();
+    return tag(await r.blob());
   }
   throw new ApiError('UnoRouter replied without image data.', true);
 }
@@ -543,10 +546,11 @@ async function runBatch(onlyOne){
     const report = await saveReport().catch(e => 'Could not save the report: ' + e.message);
     const c = s => jobs.filter(j => j.status === s).length;
     let msg = (stopping ? 'Stopped. ' : 'Finished. ') + (c('done') + c('flagged')) + ' saved' + (c('flagged') ? ' (' + c('flagged') + ' came back at the wrong size)' : '') +
+      (jobs.some(j => j.lowQuality) ? ' (WARNING: ' + jobs.filter(j => j.lowQuality).length + ' at a lower quality than "' + settings.quality + '"; see the notes)' : '') +
       (c('failed') ? ', ' + c('failed') + ' failed' : '') + '. ' + report;
     const tj = todo[0];
     if (onlyOne && tj.got) msg += ' Test image: asked UnoRouter for ' + tj.req.W + '×' + tj.req.H + ', got ' + tj.got.W + '×' + tj.got.H + (tj.got.W === tj.req.W && tj.got.H === tj.req.H ? ' (correct)' : '') + '.';
-    setStatus(msg, c('failed') || c('flagged') ? 'err' : 'ok');
+    setStatus(msg, c('failed') || c('flagged') || jobs.some(j => j.lowQuality) ? 'err' : 'ok');
   } catch (e) {
     setStatus(e.message, 'err');
   } finally {
@@ -561,6 +565,7 @@ async function runJob(job, s){
     job.attempts++; job.status = 'gen'; paint(job);
     try {
       blob = await generate(job, s, stopCtl.signal);
+      job.api = blob.api || {};
       info = await inspect(blob);
       job.got = info;
       if (info.W === job.req.W && info.H === job.req.H) break;
@@ -582,23 +587,26 @@ async function runJob(job, s){
   if (wrong && s.wrongSize === 'skip') { job.status = 'failed'; job.note = 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + job.req.W + '×' + job.req.H + '; not saved.'; paint(job); return; }
   try {
     job.status = 'save'; paint(job);
-    const needFit = (info.W !== job.final.W || info.H !== job.final.H) && !(wrong && s.wrongSize === 'flag');
+    const needFit = false; // never resized: saved at the size the API returned
     if (needFit) blob = await fitTo(blob, info, job.final.W, job.final.H, info.type);
     else if (blob.type !== info.type) blob = new Blob([blob], { type: info.type });
     await save(job.file, blob);
+    job.lowQuality = !!(job.api.quality && job.api.quality !== s.quality);
+    const qnote = job.api.quality ? (job.lowQuality ? ' WARNING: the API used quality "' + job.api.quality + '", not "' + s.quality + '".' : ' Quality ' + job.api.quality + ' confirmed.')
+      : ' (The reply did not say which quality was used.)';
     job.status = wrong ? 'flagged' : 'done';
-    job.note = wrong ? 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + job.req.W + '×' + job.req.H + (needFit ? '; resized to ' + job.final.W + '×' + job.final.H + '.' : '; saved as returned.')
-                     : 'Saved ' + job.file + (needFit ? ' (scaled from ' + info.W + '×' + info.H + ')' : '') + (job.attempts > 1 ? ', ' + job.attempts + ' tries' : '') + '.';
+    job.note = wrong ? 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + job.req.W + '×' + job.req.H + (needFit ? '; resized to ' + job.final.W + '×' + job.final.H + '.' : '; saved as returned.') + qnote
+                     : 'Saved ' + job.file + (needFit ? ' (scaled from ' + info.W + '×' + info.H + ')' : '') + (job.attempts > 1 ? ', ' + job.attempts + ' tries' : '') + '.' + qnote;
   } catch (e) { job.status = 'failed'; job.note = 'Could not save: ' + e.message; }
   blob = null; paint(job);
 }
 async function saveReport(){
   if (!jobs.some(j => ['done', 'flagged', 'failed', 'nosize'].includes(j.status))) return '';
   const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-  const lines = [['#', 'file', 'status', 'size in prompt', 'size asked from API', 'size returned', 'saved size', 'tries', 'note', 'prompt'].join(',')];
+  const lines = [['#', 'file', 'status', 'size in prompt', 'size asked from API', 'size returned', 'saved size', 'tries', 'quality returned', 'output tokens', 'note', 'prompt'].join(',')];
   jobs.forEach(j => lines.push([j.n, q(j.file), j.status, j.want ? j.want.W + 'x' + j.want.H : '', j.req ? j.req.W + 'x' + j.req.H : '',
     j.got ? j.got.W + 'x' + j.got.H : '', ['done', 'flagged'].includes(j.status) ? (j.status === 'flagged' && $('wrongSize').value === 'flag' ? j.got.W + 'x' + j.got.H : j.final.W + 'x' + j.final.H) : '',
-    j.attempts, q(j.note), q(j.prompt)].join(',')));
+    j.attempts, j.api ? j.api.quality : '', j.api && j.api.tokens != null ? j.api.tokens : '', q(j.note), q(j.prompt)].join(',')));
   const d = new Date(), p2 = x => String(x).padStart(2, '0');
   const name = '_report_' + d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + p2(d.getHours()) + '-' + p2(d.getMinutes()) + '.csv';
   await save(name, new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' }));
