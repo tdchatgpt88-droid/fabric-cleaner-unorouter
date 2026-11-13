@@ -86,7 +86,7 @@ code{font-size:.9em}
         <select id="complexity"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="">Don't send (model default)</option></select>
         <div class="hint">Planning effort is OpenAI's <code>complexity</code> field: how much the model plans the picture before drawing it, separate from Quality. High is the most. The default is not to send it, so the model uses its own default (some models reject High).</div>
         <label for="fallback">Size for prompts that don't state one</label>
-        <input type="text" id="fallback" class="mono" spellcheck="false" placeholder="e.g. 1122x1402 (empty = skip those prompts)">
+        <input type="text" id="fallback" class="mono" spellcheck="false" placeholder="e.g. 1152x1440 (empty = skip those prompts)">
         <div class="row">
           <div><label for="parallel">API calls at once</label>
             <input type="number" id="parallel" min="1" max="100"></div>
@@ -142,7 +142,7 @@ A floral border print (no size given: uses the default size)
           <button id="loadFile">Load a file…</button>
           <input type="file" id="file" accept=".txt,.csv,.json,.tsv,text/*,application/json" hidden>
         </div>
-        <div class="hint">Files are named <code>0001_first-words-of-prompt_1122x1402.png</code>. When saving to a chosen folder, prompts whose file is already there are skipped, so you can run the same batch again to finish it or retry failures.</div>
+        <div class="hint">Files are named <code>0001_first-words-of-prompt_1152x1440.png</code>. When saving to a chosen folder, prompts whose file is already there are skipped, so you can run the same batch again to finish it or retry failures.</div>
         <div class="row" style="margin-top:12px">
           <button id="check">Check batch</button>
           <button id="testOne">Run the first one only</button>
@@ -168,7 +168,7 @@ A floral border print (no size given: uses the default size)
 <script>
 const $ = id => document.getElementById(id);
 const DEFAULTS = { base: 'https://api.unorouter.com/v1', model: 'gpt-image-2.5-sunburst', quality: 'max', complexity: '', format: 'png',
-  fallback: '1122x1402', parallel: '50', sizeRetries: '0', wrongSize: 'flag', extra: '{}', timeout: '15', split: 'auto', saveMode: 'folder' };
+  fallback: '1152x1440', parallel: '50', sizeRetries: '0', wrongSize: 'flag', extra: '{}', timeout: '15', split: 'auto', saveMode: 'folder' };
 
 /* ---------- settings ---------- */
 const NS = 'gptstudio.uno.';
@@ -184,6 +184,8 @@ if (/^openai\/gpt-image/i.test($('model').value)) { $('model').value = $('model'
 if (!$('wrongSize').value) $('wrongSize').value = 'flag'; // the old "resize" choice was removed (Nov 13)
 // Planning effort now defaults to "Don't send" (Nov 13): some models reject "high". Reset an older saved choice once.
 if (load('batch2.complexityReset') === null) { $('complexity').value = ''; store('batch2.complexity', ''); store('batch2.complexityReset', '1'); }
+// Default size is now 1152x1440 (Nov 13): 1122x1402 was sent as 1152x1440 anyway. Replace the old saved default.
+if ($('fallback').value.replace(/\s/g, '') === '1122x1402') { $('fallback').value = '1152x1440'; store('batch2.fallback', '1152x1440'); }
 const savedKey = load('apiKey');
 if (savedKey) { $('apiKey').value = savedKey; $('rememberKey').checked = true; }
 function saveKey(){ $('rememberKey').checked ? store('apiKey', $('apiKey').value.trim()) : forget('apiKey'); }
