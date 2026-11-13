@@ -128,7 +128,7 @@ code{font-size:.9em}
 
       <div class="card">
         <h2>Prompts</h2>
-        <div class="hint" style="margin-top:0">From "Quilt Mockup Prompts.xlsx". <code>{TITLE}</code> is the product title, <code>{SCENE}</code> the scene picked for the quilt, <code>{NOTES}</code> any notes from your list, <code>{BED}</code> the Image 2 wording, <code>{RATIO}</code> the shape of the mockup size (e.g. "Portrait 4:5").</div>
+        <div class="hint" style="margin-top:0">From "Quilt Mockup Prompts.xlsx". <code>{TITLE}</code> is the product title, <code>{SCENE}</code> the scene picked for the quilt, <code>{NOTES}</code> any notes from your list, <code>{BED}</code> the Image 2 wording, <code>{RATIO}</code> the shape of the mockup size (e.g. "Portrait 4:5"). When your list has a <b>Folded prompt</b>, <b>Bed prompt</b> or <b>Outdoor prompt</b> column, that cell is sent instead of the template (the same <code>{…}</code> placeholders work in it).</div>
         <label for="tplFolded">Folded</label>
         <textarea id="tplFolded" spellcheck="false"></textarea>
         <label for="tplBed">Bed</label>
@@ -147,7 +147,7 @@ code{font-size:.9em}
         <h2>Quilts</h2>
         <div class="drop" id="drop">
           <textarea id="list" class="mono" spellcheck="false" style="min-height:130px" placeholder="Paste quilt image links, one per line, or rows copied from a spreadsheet (with the header row).
-Columns it understands: Product code, Product title, Original quilt image URL, Scene, Notes.
+Columns it understands: Product code, Product title, Original quilt image URL, Scene, Notes, Folded prompt, Bed prompt, Outdoor prompt.
 
 https://cdn.shopify.com/s/files/.../quilt.png"></textarea>
           <div class="row" style="margin-top:8px">
@@ -363,16 +363,22 @@ function readList(text, label){
   const header = !rows[0].some(isUrl) ? rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()) : null;
   const body = rows.slice(header ? 1 : 0), first = header ? 2 : 1;
   const col = (re, not) => header ? header.findIndex(h => re.test(h) && !(not && not.test(h))) : -1;
-  let urlCol = col(/original|source/, /mockup|uploaded/);
-  if (urlCol < 0) urlCol = col(/\b(url|link|image|photo|src)s?\b|url|link/, /mockup|uploaded/);
+  let urlCol = col(/original|source/, /mockup|uploaded|prompt/);
+  if (urlCol < 0) urlCol = col(/\b(url|link|image|photo|src)s?\b|url|link/, /mockup|uploaded|prompt/);
   if (urlCol < 0 || !body.some(r => isUrl(r[urlCol]))) {
     let best = 0; urlCol = -1;
     const width = Math.max(0, ...body.map(r => r.length));
-    for (let c = 0; c < width; c++) { if (header && /mockup|uploaded/.test(header[c] || '')) continue; const k = body.filter(r => isUrl(r[c])).length; if (k > best) { best = k; urlCol = c; } }
+    for (let c = 0; c < width; c++) { if (header && /mockup|uploaded|prompt/.test(header[c] || '')) continue; const k = body.filter(r => isUrl(r[c])).length; if (k > best) { best = k; urlCol = c; } }
   }
   if (urlCol < 0) { $('inStatus').textContent = 'No image links (starting with http:// or https://) found in ' + label + '.'; $('inStatus').className = 'status err'; return; }
-  const codeCol = col(/\b(product code|code|sku|handle)\b/), titleCol = col(/\b(product title|title|product name|name|product)\b/, /code|url|link|image/);
-  const sceneCol = col(/\bscene\b/), notesCol = col(/\b(notes?|extra|instructions?|corrections?)\b/);
+  const codeCol = col(/\b(product code|code|sku|handle)\b/, /prompt/), titleCol = col(/\b(product title|title|product name|name|product)\b/, /code|url|link|image|prompt/);
+  const sceneCol = col(/\bscene\b/, /prompt/), notesCol = col(/\b(notes?|extra|instructions?|corrections?)\b/, /prompt/);
+  // One prompt column per mockup (e.g. "Folded prompt", "Bed prompt", "Outdoor prompt"): sent instead of the prompt templates.
+  const promptCols = {
+    folded: col(/^(?=.*prompt)(?=.*fold)/),
+    bed: col(/^(?=.*prompt)(?=.*\bbed\b)/, /fold|outdoor|hanging/),
+    outdoor: col(/^(?=.*prompt)(?=.*(outdoor|hanging))/, /fold/) };
+  let withPrompts = 0;
   const known = new Set(quilts.map(q => q.url)), bases = new Set(quilts.map(q => q.fileBase));
   let added = 0, skipped = 0, repeats = 0;
   body.forEach((r, k) => {
@@ -386,13 +392,16 @@ function readList(text, label){
     if (bases.has(base)) base += '_row' + (k + first);
     bases.add(base);
     const q = { url, title, code, fileBase: base, titleHint: title ? '' : fileFromUrl(url),
-      sceneOverride: sceneCol >= 0 ? r[sceneCol] || '' : '', notes: notesCol >= 0 ? r[notesCol] || '' : '' };
+      sceneOverride: sceneCol >= 0 ? r[sceneCol] || '' : '', notes: notesCol >= 0 ? r[notesCol] || '' : '', prompts: {} };
+    for (const key in promptCols) if (promptCols[key] >= 0 && (r[promptCols[key]] || '').trim()) q.prompts[key] = r[promptCols[key]].trim();
+    if (Object.keys(q.prompts).length) withPrompts++;
     setScene(q);
     quilts.push(q); added++;
   });
   $('inStatus').textContent = quilts.length + ' quilt' + (quilts.length === 1 ? '' : 's') + ' ready (' + added + ' added from ' + label + ')' +
     (repeats ? '; ' + repeats + ' repeated link' + (repeats === 1 ? '' : 's') + ' used once' : '') +
-    (skipped ? '; ' + skipped + ' row' + (skipped === 1 ? '' : 's') + ' without a link left out' : '') + '.';
+    (skipped ? '; ' + skipped + ' row' + (skipped === 1 ? '' : 's') + ' without a link left out' : '') + '.' +
+    (withPrompts ? ' Prompts from the list for ' + withPrompts + ' quilt' + (withPrompts === 1 ? '' : 's') + ' (' + TYPES.filter(t => promptCols[t.key] >= 0).map(t => t.label).join(', ') + '); the prompt templates are used only where a cell is empty.' : '');
   $('inStatus').className = 'status ok';
   buildJobs(); renderRows();
 }
@@ -421,7 +430,7 @@ function paint(j){
   const [txt, cls] = LABEL[j.status] || [j.status, ''];
   const q = j.quilt, firstOfQuilt = !jobs[j.i - 1] || jobs[j.i - 1].quilt !== q;
   const quiltCell = firstOfQuilt ? '<b>' + esc(q.code || q.fileBase) + '</b>' + (q.title ? '<div>' + esc(q.title) + '</div>' : '') + '<div class="hint" style="margin:0">' + esc(q.url) + '</div>' : '';
-  const note = j.note || (j.status === 'waiting' ? 'Scene: ' + q.scene : '');
+  const note = j.note || (j.status === 'waiting' ? (q.prompts && q.prompts[j.type.key] ? 'Prompt from your list.' : 'Scene: ' + q.scene) : '');
   tr.innerHTML = '<td>' + (firstOfQuilt ? j.qn : '') + '</td><td class="f">' + quiltCell + '</td><td>' + j.type.label + '<div class="hint mono" style="margin:0">' + esc(j.file) + '</div></td>' +
     '<td><span class="pill ' + cls + '">' + txt + (j.status === 'gen' && j.attempts > 1 ? ' (try ' + j.attempts + ')' : '') + '</span></td>' +
     '<td class="note' + (j.status === 'failed' ? ' err' : '') + '">' + esc(note) + (j.prompt ? '<details class="prompt"><summary>Prompt sent</summary><div>' + esc(j.prompt) + '</div></details>' : '') + '</td>';
@@ -447,7 +456,7 @@ function setStatus(t, kind){ const s = $('batchStatus'); s.textContent = t; s.cl
 function buildPrompt(job, s){
   const q = job.quilt;
   let notes = (q.notes || '').trim(); if (notes && !/[.!?]$/.test(notes)) notes += '.';
-  return s.tpl[job.type.key]
+  return ((q.prompts && q.prompts[job.type.key]) || s.tpl[job.type.key])
     .replace(/\{TITLE\}/g, q.title || 'this quilt')
     .replace(/\{SCENE\}/g, q.scene.replace(/[\s.;]+$/, ''))
     .replace(/\{BED\}/g, s.bedRef ? 'Image 2 controls bed and camera only: ' : 'Bed and camera: ')
@@ -732,7 +741,7 @@ async function runJob(job, s){
     const conv = convert ? ' (UnoRouter sent ' + info.type.replace('image/', '').toUpperCase() + '; converted)' : '';
     job.status = wrong ? 'flagged' : 'done';
     job.note = wrong ? 'UnoRouter returned ' + info.W + '×' + info.H + ' instead of ' + req.W + '×' + req.H + (needFit ? '; resized to ' + final.W + '×' + final.H + '.' : '; saved as returned.') + conv + qnote
-                     : 'Saved ' + job.file + (needFit ? ' (scaled from ' + info.W + '×' + info.H + ')' : '') + conv + (job.attempts > 1 ? ', ' + job.attempts + ' tries' : '') + '.' + qnote + ' Scene: ' + q.scene;
+                     : 'Saved ' + job.file + (needFit ? ' (scaled from ' + info.W + '×' + info.H + ')' : '') + conv + (job.attempts > 1 ? ', ' + job.attempts + ' tries' : '') + '.' + qnote + (q.prompts && q.prompts[job.type.key] ? ' Prompt from your list.' : ' Scene: ' + q.scene);
   } catch (e) { job.status = 'failed'; job.note = 'Could not save: ' + e.message; }
   blob = null; paint(job);
 }
